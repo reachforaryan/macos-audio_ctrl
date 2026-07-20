@@ -726,6 +726,27 @@ struct WidgetView: View {
             .focusEffectDisabled()
             .help("Toggle Launch at Login")
             
+            // Settings / Config Button
+            Button(action: {
+                SettingsWindowController.shared.showWindow(audioManager: audioManager)
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 8))
+                    Text("[ ⚙ CONFIG ]")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                }
+                .foregroundColor(.white.opacity(0.8))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.08))
+                .clipShape(Rectangle())
+                .overlay(Rectangle().stroke(Color.white.opacity(0.25), lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            .focusEffectDisabled()
+            .help("Open Settings Window")
+            
             Spacer()
             
             // Refresh Button
