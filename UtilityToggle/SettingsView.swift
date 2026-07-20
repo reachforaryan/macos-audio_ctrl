@@ -68,6 +68,7 @@ struct CustomY2KTextField: NSViewRepresentable {
 struct SettingsView: View {
     @ObservedObject var audioManager: AudioDeviceManager
     @ObservedObject var panelManager = FloatingPanelManager.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
     
     @AppStorage("autoCloseOnClickOutside") private var autoCloseOnClickOutside: Bool = true
     @AppStorage("showVolumeInMenuBar") private var showVolumeInMenuBar: Bool = false
@@ -88,6 +89,7 @@ struct SettingsView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 16) {
                     profileManagementSection
+                    themeSection
                     behaviorSection
                     diagnosticsSection
                 }
@@ -390,6 +392,88 @@ struct SettingsView: View {
             .onChange(of: showVolumeInMenuBar) { newValue in
                 FloatingPanelManager.shared.updateStatusItem(volume: audioManager.outputVolume, isMuted: audioManager.isOutputMuted)
             }
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+    }
+    
+    // MARK: - Section 3: Theme & Appearance
+    private var themeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader(title: "// THEME_&_APPEARANCE")
+            
+            Text("THEME PRESETS:")
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundColor(.white.opacity(0.6))
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(ThemePreset.allCases) { preset in
+                        Button(action: {
+                            themeManager.activePreset = preset
+                        }) {
+                            Text("[ \(preset.rawValue) ]")
+                                .font(.system(size: 9, weight: .black, design: .monospaced))
+                                .foregroundColor(themeManager.activePreset == preset ? .black : .white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(themeManager.activePreset == preset ? Color.white : Color.white.opacity(0.12))
+                                .clipShape(Rectangle())
+                                .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
+                        }
+                        .buttonStyle(.plain)
+                        .focusEffectDisabled()
+                    }
+                }
+            }
+            
+            Divider()
+                .background(Color.white.opacity(0.15))
+            
+            HStack {
+                Text("Primary Accent Color:")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                Spacer()
+                ColorPicker("", selection: $themeManager.primaryColor)
+                    .labelsHidden()
+                    .onChange(of: themeManager.primaryColor) { _ in
+                        themeManager.activePreset = .custom
+                    }
+            }
+            
+            HStack {
+                Text("Secondary Background Color:")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                Spacer()
+                ColorPicker("", selection: $themeManager.secondaryColor)
+                    .labelsHidden()
+                    .onChange(of: themeManager.secondaryColor) { _ in
+                        themeManager.activePreset = .custom
+                    }
+            }
+            
+            Button(action: {
+                themeManager.resetToDefault()
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 9))
+                    Text("[ RESET TO DEFAULT Y2K ]")
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 5)
+                .background(Color.white.opacity(0.1))
+                .foregroundColor(.white)
+                .clipShape(Rectangle())
+                .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            .focusEffectDisabled()
         }
         .padding(14)
         .background(Color.white.opacity(0.04))

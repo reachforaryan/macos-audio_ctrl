@@ -10,6 +10,7 @@ import CoreAudio
 // MARK: - Y2K 4-Point Concave Sparkle Star Shape
 struct Y2KStar: View {
     var size: CGFloat = 16
+    @ObservedObject var themeManager = ThemeManager.shared
     
     var body: some View {
         Path { path in
@@ -23,7 +24,7 @@ struct Y2KStar: View {
             path.addQuadCurve(to: CGPoint(x: 0, y: center.y), control: CGPoint(x: center.x - radius * c, y: center.y + radius * c))
             path.addQuadCurve(to: CGPoint(x: center.x, y: 0), control: CGPoint(x: center.x - radius * c, y: center.y - radius * c))
         }
-        .fill(Color.white)
+        .fill(themeManager.primaryColor)
         .frame(width: size, height: size)
     }
 }
@@ -32,6 +33,7 @@ struct Y2KStar: View {
 struct Y2KHatchedSlider: View {
     @Binding var value: Float
     var onEditingChanged: (Float) -> Void
+    @ObservedObject var themeManager = ThemeManager.shared
     
     var body: some View {
         GeometryReader { geo in
@@ -42,7 +44,7 @@ struct Y2KHatchedSlider: View {
             HStack(spacing: 3) {
                 ForEach(0..<totalBars, id: \.self) { index in
                     Rectangle()
-                        .fill(index < activeBars ? AppConfig.Colors.accentWhite : AppConfig.Colors.cardBorder)
+                        .fill(index < activeBars ? themeManager.primaryColor : themeManager.primaryColor.opacity(0.18))
                         .transformEffect(CGAffineTransform(a: 1, b: 0, c: -0.35, d: 1, tx: 0, ty: 0))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -65,6 +67,7 @@ struct Y2KHatchedSlider: View {
 // MARK: - Y2K Live Mic Peak Meter
 struct Y2KMicLevelMeter: View {
     var level: Float
+    @ObservedObject var themeManager = ThemeManager.shared
     
     var body: some View {
         HStack(spacing: 2) {
@@ -72,7 +75,7 @@ struct Y2KMicLevelMeter: View {
                 let threshold = Float(index) / Float(AppConfig.Dimensions.micMeterSegmentCount)
                 let isActive = level > threshold
                 Rectangle()
-                    .fill(isActive ? (index > 10 ? AppConfig.Colors.accentWhite : AppConfig.Colors.accentWhite.opacity(0.85)) : AppConfig.Colors.buttonBackground)
+                    .fill(isActive ? (index > 10 ? themeManager.primaryColor : themeManager.primaryColor.opacity(0.85)) : themeManager.primaryColor.opacity(0.15))
                     .frame(width: AppConfig.Dimensions.micMeterSegmentWidth, height: AppConfig.Dimensions.micMeterSegmentHeight)
             }
         }
@@ -83,6 +86,7 @@ struct Y2KMicLevelMeter: View {
 struct Y2KSpectrumVisualizer: View {
     var level: Float
     var isOutputMuted: Bool
+    @ObservedObject var themeManager = ThemeManager.shared
     
     var body: some View {
         TimelineView(.animation) { timeline in
@@ -97,7 +101,7 @@ struct Y2KSpectrumVisualizer: View {
                         ? max(AppConfig.Audio.minVisualizerHeight, AppConfig.Audio.minVisualizerHeight + (sin(time * 12.0 + seed) * 6.0 + cos(time * 18.0 + seed * 0.5) * 4.0) * amp)
                         : AppConfig.Audio.minVisualizerHeight
                     Rectangle()
-                        .fill(AppConfig.Colors.accentWhite)
+                        .fill(themeManager.primaryColor)
                         .frame(width: AppConfig.Dimensions.spectrumBarWidth, height: CGFloat(h))
                 }
             }
@@ -108,7 +112,8 @@ struct Y2KSpectrumVisualizer: View {
 
 struct WidgetView: View {
     @StateObject private var audioManager = AudioDeviceManager()
-    @StateObject private var panelManager = FloatingPanelManager.shared
+    @ObservedObject private var panelManager = FloatingPanelManager.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
     
     @State private var selectedTab: DeviceType = .output
     @State private var isCompact: Bool = false
