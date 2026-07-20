@@ -601,9 +601,13 @@ final class SettingsWindowController: NSObject {
                 defer: false
             )
             
+            hostingView.wantsLayer = true
+            hostingView.layer?.cornerRadius = 16
+            hostingView.layer?.masksToBounds = true
+            
             win.isOpaque = false
             win.backgroundColor = .clear
-            win.hasShadow = true
+            win.hasShadow = false
             win.isMovableByWindowBackground = true
             win.contentView = hostingView
             win.isReleasedWhenClosed = false
