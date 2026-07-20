@@ -124,6 +124,8 @@ final class AudioDeviceManager: ObservableObject {
             self.isInputMuted = getDeviceMute(deviceID: defaultIn, isOutput: false)
             attachDeviceListener(deviceID: defaultIn, isOutput: false)
         }
+        
+        FloatingPanelManager.shared.updateStatusItem(volume: self.outputVolume, isMuted: self.isOutputMuted)
     }
     
     // MARK: - Smart Profile Management & Online Device Fallback
@@ -283,6 +285,7 @@ final class AudioDeviceManager: ObservableObject {
         }
         activeProfile.outputVolume = clamped
         updateActiveProfileInStorage()
+        FloatingPanelManager.shared.updateStatusItem(volume: clamped, isMuted: isOutputMuted)
     }
     
     func setInputVolume(_ volume: Float) {
@@ -302,6 +305,7 @@ final class AudioDeviceManager: ObservableObject {
         }
         activeProfile.isOutputMuted = isOutputMuted
         updateActiveProfileInStorage()
+        FloatingPanelManager.shared.updateStatusItem(volume: outputVolume, isMuted: isOutputMuted)
     }
     
     func toggleInputMute() {

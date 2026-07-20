@@ -76,8 +76,6 @@ struct SettingsView: View {
     @State private var selectedOutputUID: String = ""
     @State private var selectedInputUID: String = ""
     @State private var isCreatingProfile: Bool = false
-    @State private var isRecordingHotkey: Bool = false
-    @State private var hotkeyMonitor: Any? = nil
     @State private var diagnosticResults: [TestResult]? = nil
     
     var body: some View {
@@ -90,7 +88,6 @@ struct SettingsView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 16) {
                     profileManagementSection
-                    shortcutsSection
                     behaviorSection
                     diagnosticsSection
                 }
@@ -345,79 +342,7 @@ struct SettingsView: View {
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.white.opacity(0.2), lineWidth: 0.5))
     }
     
-    // MARK: - Section 2: Dynamic Custom Global Hotkey Section
-    private var shortcutsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader(title: "// DYNAMIC_GLOBAL_HOTKEY")
-            
-            settingRow(title: "Custom Global Hotkey", subtitle: "Press button below & hit your custom key combination") {
-                Button(action: {
-                    if isRecordingHotkey {
-                        stopRecordingHotkey()
-                    } else {
-                        startRecordingHotkey()
-                    }
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: isRecordingHotkey ? "record.circle.fill" : "keyboard")
-                            .font(.system(size: 10))
-                            .foregroundColor(isRecordingHotkey ? .red : (panelManager.currentHotKey == CustomHotKey.defaultHotkey ? .black : .white))
-                        
-                        Text(isRecordingHotkey ? "[ PRESS KEYS... ]" : "[ \(panelManager.currentHotKey.displayString) ]")
-                            .font(.system(size: 10, weight: .black, design: .monospaced))
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(isRecordingHotkey ? Color.red.opacity(0.25) : Color.white)
-                    .foregroundColor(isRecordingHotkey ? .white : .black)
-                    .clipShape(Rectangle())
-                    .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
-                }
-                .buttonStyle(.plain)
-                .focusEffectDisabled()
-            }
-            
-            Toggle(isOn: $showVolumeInMenuBar) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Show Volume % in Menu Bar")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
-                    Text("Display active output scalar percentage next to icon")
-                        .font(.system(size: 9))
-                        .foregroundColor(.white.opacity(0.5))
-                }
-            }
-            .toggleStyle(.checkbox)
-        }
-        .padding(14)
-        .background(Color.white.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 0.5))
-    }
-    
-    private func startRecordingHotkey() {
-        isRecordingHotkey = true
-        hotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            let flags = event.modifierFlags.intersection([.control, .option, .shift, .command])
-            let newKey = CustomHotKey(keyCode: event.keyCode, modifierFlags: flags)
-            
-            Task { @MainActor in
-                self.panelManager.updateHotkey(newKey)
-                self.stopRecordingHotkey()
-            }
-            return nil
-        }
-    }
-    
-    private func stopRecordingHotkey() {
-        isRecordingHotkey = false
-        if let monitor = hotkeyMonitor {
-            NSEvent.removeMonitor(monitor)
-            hotkeyMonitor = nil
-        }
-    }
-    
-    // MARK: - Section 3: App Behavior
+    // MARK: - Section 2: App Behavior
     private var behaviorSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "// APP_BEHAVIOR")
@@ -450,6 +375,21 @@ struct SettingsView: View {
                 }
             }
             .toggleStyle(.checkbox)
+            
+            Toggle(isOn: $showVolumeInMenuBar) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Show Volume % in Menu Bar")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white)
+                    Text("Display active output scalar percentage next to icon")
+                        .font(.system(size: 9))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+            }
+            .toggleStyle(.checkbox)
+            .onChange(of: showVolumeInMenuBar) { newValue in
+                FloatingPanelManager.shared.updateStatusItem(volume: audioManager.outputVolume, isMuted: audioManager.isOutputMuted)
+            }
         }
         .padding(14)
         .background(Color.white.opacity(0.04))

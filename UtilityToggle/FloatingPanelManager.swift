@@ -125,6 +125,34 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         }
     }
     
+    func updateStatusItem(volume: Float, isMuted: Bool) {
+        guard let button = statusItem?.button else { return }
+        let showVolume = UserDefaults.standard.bool(forKey: AppConfig.Strings.showVolumeInMenuBarKey)
+        let symbolName = isMuted ? "speaker.slash.fill" : iconNames[menuIconIndex]
+        
+        if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Audio Switcher") {
+            let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .bold)
+            let configured = image.withSymbolConfiguration(config) ?? image
+            configured.isTemplate = true
+            button.image = configured
+            button.imagePosition = showVolume ? .imageLeft : .imageOnly
+        }
+        
+        if showVolume {
+            let pct = isMuted ? "MUTED" : "\(Int(round(volume * 100)))%"
+            button.attributedTitle = NSAttributedString(
+                string: " \(pct)",
+                attributes: [
+                    .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .bold),
+                    .foregroundColor: NSColor.white
+                ]
+            )
+        } else {
+            button.title = ""
+            button.attributedTitle = NSAttributedString(string: "")
+        }
+    }
+    
     func updateHotkey(_ newHotKey: CustomHotKey) {
         self.currentHotKey = newHotKey
         persistHotkeyToDisk(newHotKey)
