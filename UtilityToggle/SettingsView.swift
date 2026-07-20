@@ -70,7 +70,6 @@ struct SettingsView: View {
     @ObservedObject var panelManager = FloatingPanelManager.shared
     
     @AppStorage("autoCloseOnClickOutside") private var autoCloseOnClickOutside: Bool = true
-    @AppStorage("startInCompactMode") private var startInCompactMode: Bool = false
     @AppStorage("showVolumeInMenuBar") private var showVolumeInMenuBar: Bool = false
     
     @State private var newProfileName: String = ""
@@ -446,18 +445,6 @@ struct SettingsView: View {
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundColor(.white)
                     Text("Dismiss popover automatically when focus is lost")
-                        .font(.system(size: 9))
-                        .foregroundColor(.white.opacity(0.5))
-                }
-            }
-            .toggleStyle(.checkbox)
-            
-            Toggle(isOn: $startInCompactMode) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Start in Compact Mode")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
-                    Text("Launch widget directly in collapsed mini view")
                         .font(.system(size: 9))
                         .foregroundColor(.white.opacity(0.5))
                 }
