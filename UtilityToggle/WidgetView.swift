@@ -26,13 +26,13 @@ struct WidgetView: View {
             headerView
             
             if !isCompact {
-                // Active Setup Hero Section (macOS Control Center Style Card)
+                // Active Setup Hero Section (macOS System Control Style Card)
                 activeSetupSection
                     .padding(.horizontal, 12)
                     .padding(.top, 4)
                     .padding(.bottom, 8)
                 
-                // macOS Native Segmented Control
+                // macOS System Native Segmented Control
                 Picker("", selection: $selectedTab) {
                     Text("Output (\(audioManager.outputDevices.count))").tag(DeviceType.output)
                     Text("Input (\(audioManager.inputDevices.count))").tag(DeviceType.input)
@@ -41,7 +41,7 @@ struct WidgetView: View {
                 .padding(.horizontal, 12)
                 .padding(.bottom, 8)
                 
-                // Audio Sources List
+                // Audio Sources List (macOS System Menu Style)
                 deviceListView
                     .frame(maxHeight: .infinity)
             } else {
@@ -51,24 +51,21 @@ struct WidgetView: View {
             }
             
             Divider()
-                .opacity(0.35)
+                .opacity(0.4)
             
             // Footer Bar
             footerView
         }
         .frame(width: 320, height: isCompact ? 195 : 480)
         .background(
-            ZStack {
-                VisualEffectBlur(material: .popover, blendingMode: .behindWindow)
-                Color(NSColor.windowBackgroundColor).opacity(0.35)
-            }
+            VisualEffectBlur(material: .popover, blendingMode: .behindWindow)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+                .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
         )
-        .shadow(color: Color.black.opacity(0.25), radius: 14, x: 0, y: 6)
+        .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 5)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isCompact)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: selectedTab)
     }
@@ -81,7 +78,7 @@ struct WidgetView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.accentColor)
                 
-                Text("Sound Controls")
+                Text("Sound")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.primary)
                 
@@ -139,7 +136,7 @@ struct WidgetView: View {
         .padding(.bottom, 6)
     }
     
-    // MARK: - Active Setup Hero Card (macOS Control Center Style)
+    // MARK: - Active Setup Hero Card
     private var activeSetupSection: some View {
         VStack(spacing: 8) {
             // Active Output Row
@@ -168,7 +165,7 @@ struct WidgetView: View {
                 
                 Spacer()
                 
-                // Mute Output Toggle Button
+                // Mute Output Button
                 Button(action: {
                     audioManager.toggleOutputMute()
                 }) {
@@ -212,12 +209,12 @@ struct WidgetView: View {
             HStack(spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(Color.purple.opacity(0.15))
+                        .fill(Color.accentColor.opacity(0.15))
                         .frame(width: 30, height: 30)
                     
                     Image(systemName: currentInput?.iconName ?? "mic.fill")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.purple)
+                        .foregroundColor(.accentColor)
                 }
                 
                 VStack(alignment: .leading, spacing: 1) {
@@ -233,7 +230,7 @@ struct WidgetView: View {
                 
                 Spacer()
                 
-                // Mute Input Toggle Button
+                // Mute Input Button
                 Button(action: {
                     audioManager.toggleInputMute()
                 }) {
@@ -257,7 +254,7 @@ struct WidgetView: View {
                     get: { audioManager.inputVolume },
                     set: { audioManager.setInputVolume($0) }
                 ), in: 0...1)
-                .accentColor(.purple)
+                .accentColor(.accentColor)
                 
                 Image(systemName: "waveform")
                     .font(.system(size: 10))
@@ -270,15 +267,15 @@ struct WidgetView: View {
             }
         }
         .padding(10)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .background(Color(NSColor.controlBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
         )
     }
     
-    // MARK: - Device List (macOS System Sound Menu Style)
+    // MARK: - Device List
     private var deviceListView: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 4) {
@@ -310,7 +307,7 @@ struct WidgetView: View {
                             HStack(spacing: 10) {
                                 ZStack {
                                     Circle()
-                                        .fill(isActive ? (selectedTab == .output ? Color.accentColor : Color.purple) : Color.primary.opacity(0.08))
+                                        .fill(isActive ? Color.accentColor : Color.primary.opacity(0.08))
                                         .frame(width: 28, height: 28)
                                     
                                     Image(systemName: device.iconName)
@@ -326,7 +323,7 @@ struct WidgetView: View {
                                     
                                     Text(isActive ? "Active" : "Available")
                                         .font(.system(size: 9))
-                                        .foregroundColor(isActive ? (selectedTab == .output ? .accentColor : .purple) : .secondary)
+                                        .foregroundColor(isActive ? .accentColor : .secondary)
                                 }
                                 
                                 Spacer()
@@ -334,14 +331,14 @@ struct WidgetView: View {
                                 if isActive {
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(selectedTab == .output ? .accentColor : .purple)
+                                        .foregroundColor(.accentColor)
                                 }
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .background(
                                 isActive
-                                    ? Color.primary.opacity(0.08)
+                                    ? Color(NSColor.selectedControlColor).opacity(0.15)
                                     : (isHovered ? Color.primary.opacity(0.05) : Color.clear)
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -388,7 +385,7 @@ struct WidgetView: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: currentInput?.iconName ?? "mic.fill")
-                        .foregroundColor(.purple)
+                        .foregroundColor(.accentColor)
                     Text(currentInput?.name ?? "No Input")
                         .font(.system(size: 12, weight: .semibold))
                         .lineLimit(1)
@@ -407,7 +404,7 @@ struct WidgetView: View {
             }
         }
         .padding(8)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.4))
+        .background(Color(NSColor.controlBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
     
