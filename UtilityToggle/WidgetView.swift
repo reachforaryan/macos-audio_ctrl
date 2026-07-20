@@ -517,10 +517,10 @@ struct WidgetView: View {
                     Text(audioManager.isOutputMuted ? "[ MUTED ]" : "[ MUTE ]")
                         .font(.system(size: 8, weight: .black, design: .monospaced))
                         .foregroundColor(audioManager.isOutputMuted ? .black : .white)
-                        .padding(5)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
                         .background(audioManager.isOutputMuted ? Color.white : Color.white.opacity(0.1))
                         .clipShape(Rectangle())
-                        .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
@@ -541,18 +541,16 @@ struct WidgetView: View {
                     Text(audioManager.isInputMuted ? "[ MUTED ]" : "[ MUTE ]")
                         .font(.system(size: 8, weight: .black, design: .monospaced))
                         .foregroundColor(audioManager.isInputMuted ? .black : .white)
-                        .padding(5)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
                         .background(audioManager.isInputMuted ? Color.white : Color.white.opacity(0.1))
                         .clipShape(Rectangle())
-                        .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(10)
-        .background(Color.white.opacity(0.04))
-        .clipShape(Rectangle())
-        .overlay(Rectangle().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
     }
     
     // MARK: - Footer

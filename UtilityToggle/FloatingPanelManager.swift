@@ -42,14 +42,15 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         p.isOpaque = false
         p.backgroundColor = .clear
         p.hasShadow = true
-        p.isMovableByWindowBackground = true
+        p.isMovableByWindowBackground = false
+        p.isMovable = false
         p.ignoresMouseEvents = false
-        p.level = .popUpMenu
-        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        p.level = .normal
+        p.collectionBehavior = [.canJoinAllSpaces]
         
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.wantsLayer = true
-        hostingView.layer?.cornerRadius = 16
+        hostingView.layer?.cornerRadius = 20
         hostingView.layer?.masksToBounds = true
         
         p.contentView = hostingView
