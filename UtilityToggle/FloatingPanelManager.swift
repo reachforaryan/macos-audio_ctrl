@@ -29,7 +29,8 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     @Published var isVisible: Bool = true
     @Published var menuIconIndex: Int = 0
     
-    private let iconNames = ["waveform.circle.fill", "sparkles", "disc.fill"]
+    let iconNames = ["waveform.circle.fill", "sparkles", "disc.fill"]
+    let iconLabels = ["WAVEFORM", "STAR ✦", "DISC 💿"]
 
     override init() {
         super.init()
@@ -97,12 +98,17 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         isVisible = false
     }
     
+    func setIcon(index: Int) {
+        menuIconIndex = index % iconNames.count
+        updateStatusItemImage()
+    }
+    
     func cycleMenuBarIcon() {
         menuIconIndex = (menuIconIndex + 1) % iconNames.count
         updateStatusItemImage()
     }
     
-    private func updateStatusItemImage() {
+    func updateStatusItemImage() {
         guard let button = statusItem?.button else { return }
         let symbolName = iconNames[menuIconIndex]
         if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Audio Switcher") {

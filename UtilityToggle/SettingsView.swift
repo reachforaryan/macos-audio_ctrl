@@ -287,9 +287,9 @@ struct SettingsView: View {
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.white.opacity(0.2), lineWidth: 0.5))
     }
     
-    // MARK: - Shortcuts Section
+    // MARK: - Shortcuts & Menu Bar Section
     private var shortcutsSection: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             sectionHeader(title: "// MENU_BAR_&_SHORTCUTS")
             
             settingRow(title: "Global Hotkey", subtitle: "Toggle widget popover from anywhere") {
@@ -302,21 +302,30 @@ struct SettingsView: View {
                     .clipShape(Rectangle())
             }
             
-            settingRow(title: "Menu Bar Icon Style", subtitle: "Cycle menu bar status item symbol") {
-                Button(action: {
-                    panelManager.cycleMenuBarIcon()
-                }) {
-                    Text("[ CYCLE_ICON ]")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.white.opacity(0.12))
-                        .clipShape(Rectangle())
-                        .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
+            VStack(alignment: .leading, spacing: 6) {
+                Text("MENU BAR ICON STYLE:")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                
+                HStack(spacing: 6) {
+                    ForEach(0..<panelManager.iconNames.count, id: \.self) { idx in
+                        let isSelected = panelManager.menuIconIndex == idx
+                        Button(action: {
+                            panelManager.setIcon(index: idx)
+                        }) {
+                            Text(panelManager.iconLabels[idx])
+                                .font(.system(size: 9, weight: .black, design: .monospaced))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(isSelected ? Color.white : Color.white.opacity(0.1))
+                                .foregroundColor(isSelected ? .black : .white.opacity(0.8))
+                                .clipShape(Rectangle())
+                                .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
+                        }
+                        .buttonStyle(.plain)
+                        .focusEffectDisabled()
+                    }
                 }
-                .buttonStyle(.plain)
-                .focusEffectDisabled()
             }
             
             Toggle(isOn: $showVolumeInMenuBar) {
