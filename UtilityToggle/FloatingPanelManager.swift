@@ -225,10 +225,19 @@ final class FloatingPanelManager: NSObject, ObservableObject {
                 guard let self = self, self.isVisible, let panel = self.panel else { return }
                 let mouseLocation = NSEvent.mouseLocation
                 
+                // 1. Mouse inside main widget panel
                 if NSPointInRect(mouseLocation, panel.frame) {
                     return
                 }
                 
+                // 2. Mouse inside settings window
+                if let settingsWin = SettingsWindowController.shared.window,
+                   settingsWin.isVisible,
+                   NSPointInRect(mouseLocation, settingsWin.frame) {
+                    return
+                }
+                
+                // 3. Mouse inside menu bar status button
                 if let button = self.statusItem?.button,
                    let buttonWindow = button.window {
                     let boundsInWindow = button.convert(button.bounds, to: nil)
@@ -254,6 +263,11 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         let mouseLocation = NSEvent.mouseLocation
         if let panel = panel, NSPointInRect(mouseLocation, panel.frame) {
             panel.makeKeyAndOrderFront(nil)
+            return
+        }
+        if let settingsWin = SettingsWindowController.shared.window,
+           settingsWin.isVisible,
+           NSPointInRect(mouseLocation, settingsWin.frame) {
             return
         }
     }

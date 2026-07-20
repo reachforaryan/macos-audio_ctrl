@@ -7,6 +7,64 @@ import SwiftUI
 import AppKit
 import ServiceManagement
 
+class ClickableTextField: NSTextField {
+    override func mouseDown(with event: NSEvent) {
+        if let win = window {
+            win.makeKeyAndOrderFront(nil)
+            win.makeFirstResponder(self)
+        }
+        super.mouseDown(with: event)
+    }
+}
+
+// MARK: - Native NSTextField Wrapper for 100% Reliable Typing
+struct CustomY2KTextField: NSViewRepresentable {
+    let placeholder: String
+    @Binding var text: String
+    
+    class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: CustomY2KTextField
+        
+        init(_ parent: CustomY2KTextField) {
+            self.parent = parent
+        }
+        
+        func controlTextDidChange(_ obj: Notification) {
+            if let textField = obj.object as? NSTextField {
+                self.parent.text = textField.stringValue
+            }
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    func makeNSView(context: Context) -> NSTextField {
+        let textField = ClickableTextField()
+        textField.placeholderString = placeholder
+        textField.stringValue = text
+        textField.delegate = context.coordinator
+        textField.isBordered = false
+        textField.drawsBackground = false
+        textField.focusRingType = .none
+        textField.textColor = .white
+        textField.font = .monospacedSystemFont(ofSize: 11, weight: .bold)
+        textField.cell?.wraps = false
+        textField.cell?.isScrollable = true
+        textField.isEditable = true
+        textField.isSelectable = true
+        textField.isEnabled = true
+        return textField
+    }
+    
+    func updateNSView(_ nsView: NSTextField, context: Context) {
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+    }
+}
+
 struct SettingsView: View {
     @ObservedObject var audioManager: AudioDeviceManager
     @ObservedObject var panelManager = FloatingPanelManager.shared
@@ -204,13 +262,12 @@ struct SettingsView: View {
                 .font(.system(size: 9, weight: .black, design: .monospaced))
                 .foregroundColor(.white)
             
-            TextField("Profile Name (e.g. Gaming, Studio)", text: $newProfileName)
-                .textFieldStyle(.plain)
+            CustomY2KTextField(placeholder: "Profile Name (e.g. Gaming, Studio)", text: $newProfileName)
+                .frame(height: 22)
                 .padding(6)
-                .background(Color.black.opacity(0.4))
-                .foregroundColor(.white)
+                .background(Color.black.opacity(0.6))
                 .clipShape(Rectangle())
-                .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
+                .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
             
             HStack {
                 Text("Output Device:")
@@ -527,7 +584,7 @@ class CustomSettingsWindow: NSWindow {
 final class SettingsWindowController: NSObject {
     static let shared = SettingsWindowController()
     
-    private var window: NSWindow?
+    var window: NSWindow?
     
     func showWindow(audioManager: AudioDeviceManager) {
         let win: NSWindow
@@ -538,7 +595,7 @@ final class SettingsWindowController: NSObject {
             let hostingView = NSHostingView(rootView: settingsView)
             
             win = CustomSettingsWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 450, height: 550),
+                contentRect: NSRect(x: 0, y: 0, width: 450, height: 530),
                 styleMask: [.borderless, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
