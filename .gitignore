@@ -14,6 +14,24 @@ xcuserdata/
 *.moved-aside
 *.xcuserstate
 *.xcworkspace/xcuserdata/
+*.xcworkspace/xcshareddata/workspace.settings
 
-# macOS
+# Swift Package Manager
+.build/
+Packages/
+Package.pins
+Package.resolved
+
+# macOS System Files
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Temporary files
+*.swp
+*.tmp
+*.log
