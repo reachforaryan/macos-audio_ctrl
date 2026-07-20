@@ -83,6 +83,10 @@ public enum AppConfig {
         public static let sectionPresets = "// AUDIO_PRESETS"
         public static let sectionOutputDevice = "// SYSTEM_OUTPUT_DEVICE"
         public static let sectionInputDevice = "// INPUT_DEVICE_&_MIC"
+        public static let sectionPerAppMixer = "// PER_APP_AUDIO_MIXER"
+        public static let tabApps = "APPS"
+        public static let noActiveAppsText = "// NO_ACTIVE_AUDIO_APPS_FOUND"
+        public static let scanAppsBtn = "[ SCAN ACTIVE APPS ]"
         
         // Labels & Actions
         public static let closeBtn = "CLOSE"
@@ -100,12 +104,15 @@ public enum AppConfig {
         public static let userHotKeyStorageKey = "UserCustomHotKeyStorageKey"
         public static let autoCloseOnClickOutsideKey = "autoCloseOnClickOutside"
         public static let showVolumeInMenuBarKey = "showVolumeInMenuBar"
+        public static let appVolumeStoragePrefix = "UserAppVolumeStorage_"
     }
     
     // MARK: - Audio Engine Parameters
     public enum Audio {
         public static let meteringIntervalSeconds: Double = 0.05 // 50ms update interval (20Hz)
         public static let defaultScalarVolume: Float = 0.8
+        public static let defaultAppVolume: Float = 1.0
+        public static let maxAppVolumeBoost: Float = 2.0
         public static let minVisualizerHeight: Double = 3.0
         public static let micPeakMeterSegmentCount: Int = 14
         public static let spectrumBarCount: Int = 8

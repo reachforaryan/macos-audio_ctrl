@@ -114,6 +114,7 @@ struct WidgetView: View {
     @StateObject private var audioManager = AudioDeviceManager()
     @ObservedObject private var panelManager = FloatingPanelManager.shared
     @ObservedObject private var themeManager = ThemeManager.shared
+    @ObservedObject private var appProcessManager = AppAudioProcessManager.shared
     
     @State private var selectedTab: DeviceType = .output
     @State private var isCompact: Bool = false
@@ -123,6 +124,7 @@ struct WidgetView: View {
     enum DeviceType {
         case output
         case input
+        case apps
     }
     
     var body: some View {
@@ -452,18 +454,18 @@ struct WidgetView: View {
     
     // MARK: - Y2K Monochromatic Source Switcher
     private var y2kSourceSwitcher: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             Button(action: {
                 selectedTab = .output
             }) {
-                HStack(spacing: 6) {
-                    Y2KStar(size: 10)
+                HStack(spacing: 4) {
+                    Y2KStar(size: 8)
                         .foregroundColor(selectedTab == .output ? .black : .white)
-                    Text("OUTPUT [\(audioManager.outputDevices.count)]")
-                        .font(.system(size: 10, weight: .black, design: .monospaced))
+                    Text("OUT [\(audioManager.outputDevices.count)]")
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
+                .padding(.vertical, 6)
                 .background(selectedTab == .output ? Color.white : Color.white.opacity(0.05))
                 .foregroundColor(selectedTab == .output ? .black : .white.opacity(0.6))
                 .clipShape(Rectangle())
@@ -475,16 +477,35 @@ struct WidgetView: View {
             Button(action: {
                 selectedTab = .input
             }) {
-                HStack(spacing: 6) {
-                    Y2KStar(size: 10)
+                HStack(spacing: 4) {
+                    Y2KStar(size: 8)
                         .foregroundColor(selectedTab == .input ? .black : .white)
-                    Text("INPUT [\(audioManager.inputDevices.count)]")
-                        .font(.system(size: 10, weight: .black, design: .monospaced))
+                    Text("INP [\(audioManager.inputDevices.count)]")
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
+                .padding(.vertical, 6)
                 .background(selectedTab == .input ? Color.white : Color.white.opacity(0.05))
                 .foregroundColor(selectedTab == .input ? .black : .white.opacity(0.6))
+                .clipShape(Rectangle())
+                .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            .focusEffectDisabled()
+            
+            Button(action: {
+                selectedTab = .apps
+            }) {
+                HStack(spacing: 4) {
+                    Y2KStar(size: 8)
+                        .foregroundColor(selectedTab == .apps ? .black : .white)
+                    Text("APPS [\(appProcessManager.runningAppProcesses.count)]")
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .background(selectedTab == .apps ? Color.white : Color.white.opacity(0.05))
+                .foregroundColor(selectedTab == .apps ? .black : .white.opacity(0.6))
                 .clipShape(Rectangle())
                 .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
             }
@@ -495,89 +516,138 @@ struct WidgetView: View {
         .background(Color.black.opacity(0.4))
     }
     
-    // MARK: - Device List
+    // MARK: - Device List / App List
     private var deviceListView: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 5) {
-                let devices = selectedTab == .output ? audioManager.outputDevices : audioManager.inputDevices
-                let activeID = selectedTab == .output ? audioManager.currentOutputDeviceID : audioManager.currentInputDeviceID
-                
-                if devices.isEmpty {
-                    VStack(spacing: 6) {
-                        Image(systemName: "slash.circle")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white.opacity(0.5))
-                        Text("// NO_AUDIO_SOURCES")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.5))
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 80)
-                } else {
-                    ForEach(devices) { device in
-                        let isActive = device.id == activeID
-                        let isHovered = hoveredDeviceID == device.id
-                        
-                        Button(action: {
-                            if selectedTab == .output {
-                                audioManager.setOutputDevice(device)
-                            } else {
-                                audioManager.setInputDevice(device)
-                            }
-                        }) {
-                            HStack(spacing: 10) {
-                                ZStack {
-                                    Rectangle()
-                                        .fill(isActive ? Color.white : Color.white.opacity(0.1))
-                                        .frame(width: 26, height: 26)
-                                        .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
-                                    
-                                    Image(systemName: device.iconName)
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(isActive ? .black : .white)
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(device.name.uppercased())
-                                        .font(.system(size: 11, weight: isActive ? .black : .bold, design: .monospaced))
-                                        .foregroundColor(isActive ? .white : .white.opacity(0.85))
-                                        .lineLimit(1)
-                                    
-                                    Text(isActive ? "✦ ACTIVE_SOURCE" : "AVAILABLE")
-                                        .font(.system(size: 8, weight: .heavy, design: .monospaced))
-                                        .foregroundColor(isActive ? .white : .white.opacity(0.4))
-                                }
-                                
-                                Spacer()
-                                
-                                if isActive {
-                                    Y2KStar(size: 12)
-                                        .rotationEffect(.degrees(starRotation * 1.5))
-                                }
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 7)
-                            .background(
-                                isActive
-                                    ? Color.white.opacity(0.15)
-                                    : (isHovered ? Color.white.opacity(0.08) : Color.white.opacity(0.03))
-                            )
-                            .clipShape(Rectangle())
-                            .overlay(
-                                Rectangle()
-                                    .stroke(isActive ? Color.white : Color.white.opacity(0.15), lineWidth: isActive ? 1 : 0.5)
-                            )
+            if selectedTab == .apps {
+                perAppMixerListView
+            } else {
+                VStack(spacing: 5) {
+                    let devices = selectedTab == .output ? audioManager.outputDevices : audioManager.inputDevices
+                    let activeID = selectedTab == .output ? audioManager.currentOutputDeviceID : audioManager.currentInputDeviceID
+                    
+                    if devices.isEmpty {
+                        VStack(spacing: 6) {
+                            Image(systemName: "slash.circle")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white.opacity(0.5))
+                            Text("// NO_AUDIO_SOURCES")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.5))
                         }
-                        .buttonStyle(.plain)
-                        .focusEffectDisabled()
-                        .onHover { hovering in
-                            hoveredDeviceID = hovering ? device.id : nil
+                        .frame(maxWidth: .infinity, minHeight: 80)
+                    } else {
+                        ForEach(devices) { device in
+                            let isActive = device.id == activeID
+                            let isHovered = hoveredDeviceID == device.id
+                            
+                            Button(action: {
+                                if selectedTab == .output {
+                                    audioManager.setOutputDevice(device)
+                                } else {
+                                    audioManager.setInputDevice(device)
+                                }
+                            }) {
+                                HStack(spacing: 10) {
+                                    ZStack {
+                                        Rectangle()
+                                            .fill(isActive ? Color.white : Color.white.opacity(0.1))
+                                            .frame(width: 26, height: 26)
+                                            .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
+                                        
+                                        Image(systemName: device.iconName)
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(isActive ? .black : .white)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(device.name.uppercased())
+                                            .font(.system(size: 11, weight: isActive ? .black : .bold, design: .monospaced))
+                                            .foregroundColor(isActive ? .white : .white.opacity(0.85))
+                                            .lineLimit(1)
+                                        
+                                        Text(isActive ? "✦ ACTIVE_SOURCE" : "AVAILABLE")
+                                            .font(.system(size: 8, weight: .heavy, design: .monospaced))
+                                            .foregroundColor(isActive ? .white : .white.opacity(0.4))
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    if isActive {
+                                        Y2KStar(size: 12)
+                                            .rotationEffect(.degrees(starRotation * 1.5))
+                                    }
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 7)
+                                .background(
+                                    isActive
+                                        ? Color.white.opacity(0.15)
+                                        : (isHovered ? Color.white.opacity(0.08) : Color.white.opacity(0.03))
+                                )
+                                .clipShape(Rectangle())
+                                .overlay(
+                                    Rectangle()
+                                        .stroke(isActive ? Color.white : Color.white.opacity(0.15), lineWidth: isActive ? 1 : 0.5)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .focusEffectDisabled()
+                            .onHover { hovering in
+                                hoveredDeviceID = hovering ? device.id : nil
+                            }
                         }
                     }
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 2)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 2)
         }
+    }
+    
+    // MARK: - Per-App Mixer List View
+    private var perAppMixerListView: some View {
+        VStack(spacing: 6) {
+            HStack {
+                Text(AppConfig.Strings.sectionPerAppMixer)
+                    .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.5))
+                Spacer()
+                Button(action: {
+                    appProcessManager.refreshActiveProcesses()
+                }) {
+                    Text(AppConfig.Strings.scanAppsBtn)
+                        .font(.system(size: 8, weight: .black, design: .monospaced))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Rectangle())
+                        .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .focusEffectDisabled()
+            }
+            .padding(.horizontal, 4)
+            
+            if appProcessManager.runningAppProcesses.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "square.stack.3d.up.slash")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white.opacity(0.5))
+                    Text(AppConfig.Strings.noActiveAppsText)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                .frame(maxWidth: .infinity, minHeight: 100)
+            } else {
+                ForEach(appProcessManager.runningAppProcesses) { process in
+                    AppVolumeRowView(process: process)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 2)
     }
     
     // MARK: - Y2K Decorative Scale Line
@@ -783,5 +853,69 @@ struct VisualEffectBlur: NSViewRepresentable {
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
         nsView.blendingMode = blendingMode
+    }
+}
+
+// MARK: - Y2K Per-App Volume Row View
+struct AppVolumeRowView: View {
+    let process: AppAudioProcess
+    @ObservedObject private var appProcessManager = AppAudioProcessManager.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
+    
+    var body: some View {
+        VStack(spacing: 5) {
+            HStack(spacing: 6) {
+                Image(nsImage: process.icon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 14, height: 14)
+                
+                Text(process.name.uppercased())
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                Spacer()
+                
+                Button(action: {
+                    appProcessManager.toggleAppMute(bundleIdentifier: process.bundleIdentifier)
+                }) {
+                    Text(process.isMuted ? "[ MUTED ]" : "[ MUTE ]")
+                        .font(.system(size: 8, weight: .black, design: .monospaced))
+                        .foregroundColor(process.isMuted ? .black : .white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(process.isMuted ? themeManager.primaryColor : Color.white.opacity(0.12))
+                        .clipShape(Rectangle())
+                        .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .focusEffectDisabled()
+            }
+            
+            HStack(spacing: 8) {
+                Y2KHatchedSlider(
+                    value: Binding(
+                        get: { process.volume },
+                        set: { appProcessManager.setAppVolume(bundleIdentifier: process.bundleIdentifier, volume: $0) }
+                    ),
+                    onEditingChanged: { newVol in
+                        appProcessManager.setAppVolume(bundleIdentifier: process.bundleIdentifier, volume: newVol)
+                    }
+                )
+                
+                Text("\(Int(process.volume * 100))%")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(themeManager.primaryColor)
+                    .frame(width: 32, alignment: .trailing)
+            }
+        }
+        .padding(8)
+        .background(Color.white.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+        )
     }
 }
