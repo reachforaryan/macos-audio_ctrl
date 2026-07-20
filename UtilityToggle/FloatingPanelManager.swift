@@ -100,6 +100,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         stopClickOutsideMonitor()
         panel?.orderOut(nil)
         isVisible = false
+        SettingsWindowController.shared.close()
     }
     
     func setIcon(index: Int) {
