@@ -2,16 +2,24 @@
 //  UtilityToggleApp.swift
 //  UtilityToggle
 //
-//  Created by Aryan Singh on 20/07/26.
-//
 
 import SwiftUI
+import AppKit
 
 @main
-struct UtilityToggleApp: App {
+struct AudioWidgetApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        Settings {
+            EmptyView()
         }
+    }
+}
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+        FloatingPanelManager.shared.setupPanel(contentView: AnyView(WidgetView()))
     }
 }
