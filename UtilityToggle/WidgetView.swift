@@ -272,29 +272,31 @@ struct WidgetView: View {
         .padding(.bottom, 6)
     }
     
-    // MARK: - Y2K Preset Profiles Bar
+    // MARK: - Y2K Audio Profiles Bar
     private var presetProfilesBar: some View {
-        HStack(spacing: 6) {
-            ForEach(AudioPreset.allCases) { preset in
-                let isActive = audioManager.activePreset == preset
-                Button(action: {
-                    audioManager.applyPreset(preset)
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: preset.icon)
-                            .font(.system(size: 9))
-                        Text(preset.rawValue.replacingOccurrences(of: "_MODE", with: ""))
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(audioManager.profiles) { profile in
+                    let isActive = audioManager.activeProfile.id == profile.id
+                    Button(action: {
+                        audioManager.applyProfile(profile)
+                    }) {
+                        HStack(spacing: 4) {
+                            Y2KStar(size: 8)
+                                .foregroundColor(isActive ? .black : .white)
+                            Text(profile.name.uppercased())
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(isActive ? Color.white : Color.white.opacity(0.06))
+                        .foregroundColor(isActive ? .black : .white.opacity(0.8))
+                        .clipShape(Rectangle())
+                        .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
-                    .background(isActive ? Color.white : Color.white.opacity(0.06))
-                    .foregroundColor(isActive ? .black : .white.opacity(0.7))
-                    .clipShape(Rectangle())
-                    .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
+                    .buttonStyle(.plain)
+                    .focusEffectDisabled()
                 }
-                .buttonStyle(.plain)
-                .focusEffectDisabled()
             }
         }
     }

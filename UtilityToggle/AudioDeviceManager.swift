@@ -45,22 +45,6 @@ public struct AudioDevice: Identifiable, Equatable, Hashable {
     }
 }
 
-public enum AudioPreset: String, CaseIterable, Identifiable {
-    case headset = "HEADSET_MODE"
-    case meeting = "MEETING_MODE"
-    case speaker = "SPEAKER_MODE"
-    
-    public var id: String { rawValue }
-    
-    public var icon: String {
-        switch self {
-        case .headset: return "headphones"
-        case .meeting: return "mic.and.signal.meter.fill"
-        case .speaker: return "speaker.wave.3.fill"
-        }
-    }
-}
-
 @MainActor
 final class AudioDeviceManager: ObservableObject {
     @Published var outputDevices: [AudioDevice] = []
@@ -77,14 +61,18 @@ final class AudioDeviceManager: ObservableObject {
     
     @Published var liveInputLevel: Float = 0.0
     @Published var isLaunchAtLoginEnabled: Bool = false
-    @Published var activePreset: AudioPreset? = nil
+    
+    @Published var profiles: [AudioProfile] = [AudioProfile.defaultGeneral]
+    @Published var activeProfile: AudioProfile = AudioProfile.defaultGeneral
     
     private var levelTimer: Timer?
     private var listenerProcRegistered = false
     private var observedOutputDeviceID: AudioObjectID?
     private var observedInputDeviceID: AudioObjectID?
+    private let profilesStorageKey = "UserAudioProfilesStorageKey"
 
     init() {
+        loadProfilesFromDisk()
         refreshDevices()
         setupListeners()
         startInputLevelMonitoring()
@@ -138,36 +126,88 @@ final class AudioDeviceManager: ObservableObject {
         }
     }
     
-    // MARK: - Audio Preset Switcher
-    func applyPreset(_ preset: AudioPreset) {
-        activePreset = preset
-        switch preset {
-        case .headset:
-            if let headset = outputDevices.first(where: { $0.name.lowercased().contains("airpods") || $0.name.lowercased().contains("headset") }) {
-                setOutputDevice(headset)
+    // MARK: - Smart Profile Management & Online Device Fallback
+    func applyProfile(_ profile: AudioProfile) {
+        self.activeProfile = profile
+        
+        // Output device online check:
+        if let targetUID = profile.targetOutputDeviceUID,
+           !targetUID.isEmpty,
+           let onlineDevice = outputDevices.first(where: { $0.uid == targetUID || $0.name == targetUID }) {
+            setOutputDevice(onlineDevice)
+        } else {
+            // Target output offline or not specified: keep current default output device
+            if let defaultOut = getDefaultDeviceID(isOutput: true),
+               let currentDevice = outputDevices.first(where: { $0.id == defaultOut }) {
+                currentOutputDeviceID = currentDevice.id
             }
-            setOutputVolume(0.7)
-            if isOutputMuted { toggleOutputMute() }
-            
-        case .meeting:
-            if let mic = inputDevices.first(where: { $0.isInput }) {
-                setInputDevice(mic)
+        }
+        setOutputVolume(profile.outputVolume)
+        if profile.isOutputMuted != isOutputMuted {
+            toggleOutputMute()
+        }
+        
+        // Input device online check:
+        if let targetUID = profile.targetInputDeviceUID,
+           !targetUID.isEmpty,
+           let onlineDevice = inputDevices.first(where: { $0.uid == targetUID || $0.name == targetUID }) {
+            setInputDevice(onlineDevice)
+        } else {
+            // Target input offline or not specified: keep current default input device
+            if let defaultIn = getDefaultDeviceID(isOutput: false),
+               let currentDevice = inputDevices.first(where: { $0.id == defaultIn }) {
+                currentInputDeviceID = currentDevice.id
             }
-            setInputVolume(0.85)
-            setOutputVolume(0.75)
-            if isInputMuted { toggleInputMute() }
-            if isOutputMuted { toggleOutputMute() }
-            
-        case .speaker:
-            if let speaker = outputDevices.first(where: { $0.name.lowercased().contains("macbook") || $0.name.lowercased().contains("built-in") }) {
-                setOutputDevice(speaker)
-            }
-            setOutputVolume(0.8)
-            if isOutputMuted { toggleOutputMute() }
+        }
+        setInputVolume(profile.inputVolume)
+        if profile.isInputMuted != isInputMuted {
+            toggleInputMute()
         }
     }
     
-    // MARK: - Live Mic Metering Simulation / CoreAudio Sample
+    func saveProfile(_ profile: AudioProfile) {
+        if let index = profiles.firstIndex(where: { $0.id == profile.id }) {
+            profiles[index] = profile
+        } else {
+            profiles.append(profile)
+        }
+        persistProfilesToDisk()
+        if activeProfile.id == profile.id {
+            applyProfile(profile)
+        }
+    }
+    
+    func deleteProfile(id: UUID) {
+        // Prevent deleting default General profile
+        guard profiles.count > 1 else { return }
+        profiles.removeAll(where: { $0.id == id && $0.name != "General" })
+        persistProfilesToDisk()
+        if activeProfile.id == id {
+            if let general = profiles.first(where: { $0.name == "General" }) ?? profiles.first {
+                applyProfile(general)
+            }
+        }
+    }
+    
+    private func loadProfilesFromDisk() {
+        if let data = UserDefaults.standard.data(forKey: profilesStorageKey),
+           let decoded = try? JSONDecoder().decode([AudioProfile].self, from: data),
+           !decoded.isEmpty {
+            self.profiles = decoded
+            self.activeProfile = decoded.first(where: { $0.name == "General" }) ?? decoded[0]
+        } else {
+            self.profiles = [AudioProfile.defaultGeneral]
+            self.activeProfile = AudioProfile.defaultGeneral
+        }
+    }
+    
+    private func persistProfilesToDisk() {
+        if let encoded = try? JSONEncoder().encode(profiles) {
+            UserDefaults.standard.set(encoded, forKey: profilesStorageKey)
+        }
+    }
+    
+    // MARK: - Live Mic Metering
     private func startInputLevelMonitoring() {
         levelTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -175,7 +215,6 @@ final class AudioDeviceManager: ObservableObject {
                 if self.isInputMuted {
                     self.liveInputLevel = 0.0
                 } else {
-                    // Simulate reactive microphone dB level variation based on input volume
                     let base = self.inputVolume * 0.4
                     let rand = Float.random(in: 0.0...0.4)
                     self.liveInputLevel = min(1.0, base + rand)
@@ -366,7 +405,6 @@ final class AudioDeviceManager: ObservableObject {
     
     private func getDeviceVolume(deviceID: AudioObjectID, isOutput: Bool) -> Float {
         let scope = isOutput ? kAudioDevicePropertyScopeOutput : kAudioDevicePropertyScopeInput
-        
         let channelsToTest: [UInt32] = [0, 1, 2]
         
         for element in channelsToTest {
@@ -393,7 +431,6 @@ final class AudioDeviceManager: ObservableObject {
         let scope = isOutput ? kAudioDevicePropertyScopeOutput : kAudioDevicePropertyScopeInput
         var vol = Float32(volume)
         let dataSize = UInt32(MemoryLayout<Float32>.size)
-        
         let channelsToSet: [UInt32] = [0, 1, 2]
         
         for element in channelsToSet {
@@ -415,7 +452,6 @@ final class AudioDeviceManager: ObservableObject {
     
     private func getDeviceMute(deviceID: AudioObjectID, isOutput: Bool) -> Bool {
         let scope = isOutput ? kAudioDevicePropertyScopeOutput : kAudioDevicePropertyScopeInput
-        
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyMute,
             mScope: scope,
