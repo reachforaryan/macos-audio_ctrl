@@ -269,6 +269,8 @@ final class AudioDeviceManager: ObservableObject {
         if let devID = currentOutputDeviceID {
             setDeviceVolume(deviceID: devID, isOutput: true, volume: clamped)
         }
+        activeProfile.outputVolume = clamped
+        updateActiveProfileInStorage()
     }
     
     func setInputVolume(_ volume: Float) {
@@ -277,6 +279,8 @@ final class AudioDeviceManager: ObservableObject {
         if let devID = currentInputDeviceID {
             setDeviceVolume(deviceID: devID, isOutput: false, volume: clamped)
         }
+        activeProfile.inputVolume = clamped
+        updateActiveProfileInStorage()
     }
     
     func toggleOutputMute() {
@@ -284,12 +288,23 @@ final class AudioDeviceManager: ObservableObject {
         if let devID = currentOutputDeviceID {
             setDeviceMute(deviceID: devID, isOutput: true, mute: isOutputMuted)
         }
+        activeProfile.isOutputMuted = isOutputMuted
+        updateActiveProfileInStorage()
     }
     
     func toggleInputMute() {
         isInputMuted.toggle()
         if let devID = currentInputDeviceID {
             setDeviceMute(deviceID: devID, isOutput: false, mute: isInputMuted)
+        }
+        activeProfile.isInputMuted = isInputMuted
+        updateActiveProfileInStorage()
+    }
+    
+    private func updateActiveProfileInStorage() {
+        if let index = profiles.firstIndex(where: { $0.id == activeProfile.id }) {
+            profiles[index] = activeProfile
+            persistProfilesToDisk()
         }
     }
     
