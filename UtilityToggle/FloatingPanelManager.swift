@@ -7,22 +7,6 @@ import AppKit
 import SwiftUI
 import Combine
 
-public enum WindowMode: String, CaseIterable, Identifiable {
-    case desktop = "Desktop Widget"
-    case floating = "Always on Top"
-    case normal = "Normal Window"
-    
-    public var id: String { rawValue }
-    
-    public var iconName: String {
-        switch self {
-        case .desktop: return "desktopcomputer"
-        case .floating: return "pin.fill"
-        case .normal: return "rectangle.on.rectangle"
-        }
-    }
-}
-
 class CustomFloatingPanel: NSPanel {
     override var canBecomeKey: Bool {
         return true
@@ -39,12 +23,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     
     var panel: NSPanel!
     private var statusItem: NSStatusItem?
-    
-    @Published var windowMode: WindowMode = .desktop {
-        didSet {
-            updateWindowLevel()
-        }
-    }
+    private var globalEventMonitor: Any?
     
     @Published var isVisible: Bool = true
 
@@ -54,7 +33,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     
     func setupPanel(contentView: AnyView) {
         let p = CustomFloatingPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: 340, height: 490),
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -65,6 +44,8 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         p.hasShadow = true
         p.isMovableByWindowBackground = true
         p.ignoresMouseEvents = false
+        p.level = .popUpMenu
+        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.wantsLayer = true
@@ -74,10 +55,16 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         p.contentView = hostingView
         p.invalidateShadow()
         
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidResignKey),
+            name: NSWindow.didResignKeyNotification,
+            object: p
+        )
+        
         self.panel = p
         
         setupMenuExtra()
-        updateWindowLevel()
         positionBelowStatusItem()
         show()
     }
@@ -93,23 +80,15 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     func show() {
         positionBelowStatusItem()
         panel?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
         isVisible = true
+        startClickOutsideMonitor()
     }
     
     func hide() {
+        stopClickOutsideMonitor()
         panel?.orderOut(nil)
         isVisible = false
-    }
-    
-    func cycleWindowMode() {
-        switch windowMode {
-        case .desktop:
-            windowMode = .floating
-        case .floating:
-            windowMode = .normal
-        case .normal:
-            windowMode = .desktop
-        }
     }
     
     func positionBelowStatusItem() {
@@ -136,23 +115,25 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         panel.setFrameOrigin(NSPoint(x: originX, y: originY))
     }
     
-    private func updateWindowLevel() {
-        guard let panel = panel else { return }
-        switch windowMode {
-        case .desktop:
-            panel.level = .normal
-            panel.collectionBehavior = [.canJoinAllSpaces]
-            panel.ignoresMouseEvents = false
-        case .floating:
-            panel.level = .floating
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            panel.ignoresMouseEvents = false
-        case .normal:
-            panel.level = .normal
-            panel.collectionBehavior = [.canJoinAllSpaces]
-            panel.ignoresMouseEvents = false
+    private func startClickOutsideMonitor() {
+        stopClickOutsideMonitor()
+        globalEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self = self, self.isVisible else { return }
+                self.hide()
+            }
         }
-        panel.orderFront(nil)
+    }
+    
+    private func stopClickOutsideMonitor() {
+        if let monitor = globalEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalEventMonitor = nil
+        }
+    }
+    
+    @objc private func windowDidResignKey(_ notification: Notification) {
+        hide()
     }
     
     private func setupMenuExtra() {

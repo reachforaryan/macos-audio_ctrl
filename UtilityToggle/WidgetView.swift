@@ -151,24 +151,6 @@ struct WidgetView: View {
                 }
                 .help(isCompact ? "Expand Widget" : "Compact View")
                 
-                // Mode Switcher (Desktop Widget / Always on Top / Normal)
-                Button(action: {
-                    panelManager.cycleWindowMode()
-                }) {
-                    Image(systemName: panelManager.windowMode.iconName)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(panelManager.windowMode == .desktop ? .cyan : (panelManager.windowMode == .floating ? .purple : .white.opacity(0.6)))
-                        .padding(6)
-                        .background(Color.white.opacity(0.12))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .contentShape(Circle())
-                .onTapGesture {
-                    panelManager.cycleWindowMode()
-                }
-                .help("Mode: \(panelManager.windowMode.rawValue)")
-                
                 // Close/Hide Button
                 Button(action: {
                     panelManager.hide()
