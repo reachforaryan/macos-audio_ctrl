@@ -870,15 +870,15 @@ struct AppVolumeRowView: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 14, height: 14)
                 
-                Text(process.name.uppercased())
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                Text(process.displayName)
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
                     .lineLimit(1)
                 
                 Spacer()
                 
                 Button(action: {
-                    appProcessManager.toggleAppMute(bundleIdentifier: process.bundleIdentifier)
+                    appProcessManager.toggleAppMute(sessionID: process.id)
                 }) {
                     Text(process.isMuted ? "[ MUTED ]" : "[ MUTE ]")
                         .font(.system(size: 8, weight: .black, design: .monospaced))
@@ -897,10 +897,10 @@ struct AppVolumeRowView: View {
                 Y2KHatchedSlider(
                     value: Binding(
                         get: { process.volume },
-                        set: { appProcessManager.setAppVolume(bundleIdentifier: process.bundleIdentifier, volume: $0) }
+                        set: { appProcessManager.setAppVolume(sessionID: process.id, volume: $0) }
                     ),
                     onEditingChanged: { newVol in
-                        appProcessManager.setAppVolume(bundleIdentifier: process.bundleIdentifier, volume: newVol)
+                        appProcessManager.setAppVolume(sessionID: process.id, volume: newVol)
                     }
                 )
                 
