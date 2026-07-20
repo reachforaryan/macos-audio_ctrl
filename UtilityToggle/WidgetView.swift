@@ -168,7 +168,7 @@ struct WidgetView: View {
         .background(
             ZStack {
                 VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
-                Color.black.opacity(0.88)
+                themeManager.secondaryColor.opacity(0.92)
             }
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -177,9 +177,9 @@ struct WidgetView: View {
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.4),
-                            Color.white.opacity(0.1),
-                            Color.white.opacity(0.3)
+                            themeManager.primaryColor.opacity(0.5),
+                            themeManager.primaryColor.opacity(0.15),
+                            themeManager.primaryColor.opacity(0.4)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing

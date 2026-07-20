@@ -105,13 +105,13 @@ struct SettingsView: View {
         .background(
             ZStack {
                 VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
-                AppConfig.Colors.hudBackground
+                themeManager.secondaryColor.opacity(0.94)
             }
         )
         .clipShape(RoundedRectangle(cornerRadius: AppConfig.Dimensions.settingsCornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: AppConfig.Dimensions.settingsCornerRadius, style: .continuous)
-                .stroke(AppConfig.Colors.buttonBorder, lineWidth: 1)
+                .stroke(themeManager.primaryColor.opacity(0.4), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.7), radius: 24, x: 0, y: 10)
     }
