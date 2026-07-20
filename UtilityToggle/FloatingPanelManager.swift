@@ -33,7 +33,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     
     func setupPanel(contentView: AnyView) {
         let p = CustomFloatingPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 480),
+            contentRect: NSRect(x: 0, y: 0, width: 340, height: 500),
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false

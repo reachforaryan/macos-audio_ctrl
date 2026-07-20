@@ -7,6 +7,61 @@ import SwiftUI
 import AppKit
 import CoreAudio
 
+// MARK: - Y2K 4-Point Concave Sparkle Star Shape
+struct Y2KStar: View {
+    var size: CGFloat = 16
+    
+    var body: some View {
+        Path { path in
+            let center = CGPoint(x: size / 2, y: size / 2)
+            let radius = size / 2
+            let c: CGFloat = 0.22 // Concavity control point ratio
+            
+            path.move(to: CGPoint(x: center.x, y: 0))
+            path.addQuadCurve(to: CGPoint(x: size, y: center.y), control: CGPoint(x: center.x + radius * c, y: center.y - radius * c))
+            path.addQuadCurve(to: CGPoint(x: center.x, y: size), control: CGPoint(x: center.x + radius * c, y: center.y + radius * c))
+            path.addQuadCurve(to: CGPoint(x: 0, y: center.y), control: CGPoint(x: center.x - radius * c, y: center.y + radius * c))
+            path.addQuadCurve(to: CGPoint(x: center.x, y: 0), control: CGPoint(x: center.x - radius * c, y: center.y - radius * c))
+        }
+        .fill(Color.white)
+        .frame(width: size, height: size)
+    }
+}
+
+// MARK: - Y2K Hatched Segmented Volume Bar
+struct Y2KHatchedSlider: View {
+    @Binding var value: Float
+    var onEditingChanged: (Float) -> Void
+    
+    var body: some View {
+        GeometryReader { geo in
+            let totalBars = 22
+            let width = geo.size.width
+            let activeBars = Int(round(Double(value) * Double(totalBars)))
+            
+            HStack(spacing: 3) {
+                ForEach(0..<22) { index in
+                    Rectangle()
+                        .fill(index < activeBars ? Color.white : Color.white.opacity(0.15))
+                        .transformEffect(CGAffineTransform(a: 1, b: 0, c: -0.35, d: 1, tx: 0, ty: 0))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { gesture in
+                        let progress = max(0, min(1, gesture.location.x / width))
+                        let newVol = Float(progress)
+                        value = newVol
+                        onEditingChanged(newVol)
+                    }
+            )
+        }
+        .frame(height: 14)
+    }
+}
+
 struct WidgetView: View {
     @StateObject private var audioManager = AudioDeviceManager()
     @StateObject private var panelManager = FloatingPanelManager.shared
@@ -14,6 +69,7 @@ struct WidgetView: View {
     @State private var selectedTab: DeviceType = .output
     @State private var isCompact: Bool = false
     @State private var hoveredDeviceID: AudioObjectID? = nil
+    @State private var starRotation: Double = 0
     
     enum DeviceType {
         case output
@@ -26,18 +82,18 @@ struct WidgetView: View {
             headerView
             
             if !isCompact {
-                // Active Setup Hero Section (Frosted Y2K Capsules)
+                // Active Setup Hero Section (Y2K Wireframe Cards)
                 activeSetupSection
                     .padding(.horizontal, 14)
-                    .padding(.top, 6)
+                    .padding(.top, 4)
                     .padding(.bottom, 8)
                 
-                // Y2K Minimalist Tab Switcher
-                y2kTabPicker
+                // Y2K Monochromatic Source Switcher
+                y2kSourceSwitcher
                     .padding(.horizontal, 14)
                     .padding(.bottom, 10)
                 
-                // Device Source List
+                // Audio Device Source List
                 deviceListView
                     .frame(maxHeight: .infinity)
             } else {
@@ -46,46 +102,21 @@ struct WidgetView: View {
                     .padding(12)
             }
             
-            Divider()
-                .background(
-                    LinearGradient(
-                        colors: [Color.cyan.opacity(0.5), Color.pink.opacity(0.5)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .opacity(0.4)
+            // Y2K Decorative Scale Line
+            y2kScaleDivider
+                .padding(.horizontal, 14)
+                .padding(.vertical, 4)
             
             // Y2K Footer Bar
             footerView
         }
-        .frame(width: 330, height: isCompact ? 195 : 490)
+        .frame(width: 340, height: isCompact ? 200 : 500)
         .background(
             ZStack {
                 VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
                 
-                // Y2K Translucent Ice Backdrop
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.04, green: 0.06, blue: 0.12).opacity(0.92),
-                        Color(red: 0.08, green: 0.05, blue: 0.14).opacity(0.94)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                
-                // Soft Cyber Neon Glow Orbs
-                Circle()
-                    .fill(Color.cyan.opacity(0.12))
-                    .frame(width: 140, height: 140)
-                    .blur(radius: 40)
-                    .offset(x: -90, y: -120)
-                
-                Circle()
-                    .fill(Color.pink.opacity(0.12))
-                    .frame(width: 140, height: 140)
-                    .blur(radius: 40)
-                    .offset(x: 90, y: 120)
+                // Pure Monochromatic Translucent Dark Backdrop
+                Color.black.opacity(0.88)
             }
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -94,9 +125,9 @@ struct WidgetView: View {
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color.cyan.opacity(0.45),
-                            Color.white.opacity(0.2),
-                            Color.pink.opacity(0.45)
+                            Color.white.opacity(0.4),
+                            Color.white.opacity(0.1),
+                            Color.white.opacity(0.3)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -104,54 +135,49 @@ struct WidgetView: View {
                     lineWidth: 1
                 )
         )
-        .shadow(color: Color.cyan.opacity(0.2), radius: 16, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.6), radius: 20, x: 0, y: 8)
         .animation(.spring(response: 0.32, dampingFraction: 0.8), value: isCompact)
         .animation(.spring(response: 0.32, dampingFraction: 0.8), value: selectedTab)
+        .onAppear {
+            withAnimation(.linear(duration: 12).repeatForever(autoreverses: false)) {
+                starRotation = 360
+            }
+        }
     }
     
     // MARK: - Y2K Header
     private var headerView: some View {
         HStack {
             HStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.cyan, Color.pink],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 26, height: 26)
-                        .shadow(color: Color.cyan.opacity(0.6), radius: 6, x: 0, y: 0)
-                    
-                    Image(systemName: "waveform.path.ecg")
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundColor(.black)
-                }
+                // Rotating Y2K Sparkle Star ✦
+                Y2KStar(size: 16)
+                    .rotationEffect(.degrees(starRotation))
                 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("AUDIO // CTRL")
-                        .font(.system(size: 12, weight: .heavy, design: .monospaced))
-                        .foregroundColor(.white)
-                    
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.cyan)
-                            .frame(width: 5, height: 5)
-                            .shadow(color: Color.cyan, radius: 4)
+                    HStack(spacing: 6) {
+                        Text("AUDIO // SYSTEM 2000")
+                            .font(.system(size: 11, weight: .black, design: .monospaced))
+                            .foregroundColor(.white)
                         
-                        Text("Y2K // LIVE")
+                        Text("[LIVE]")
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .foregroundColor(.cyan.opacity(0.85))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
                     }
+                    
+                    Text("COMPACT DISC DIGITAL AUDIO")
+                        .font(.system(size: 7, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.5))
                 }
             }
             
             Spacer()
             
             HStack(spacing: 6) {
-                // Compact Mode Toggle
+                // Compact Toggle Button
                 Button(action: {
                     withAnimation {
                         isCompact.toggle()
@@ -159,14 +185,14 @@ struct WidgetView: View {
                 }) {
                     Image(systemName: isCompact ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left")
                         .font(.system(size: 10, weight: .heavy))
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(.white)
                         .padding(6)
-                        .background(Color.white.opacity(0.1))
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Rectangle())
+                        .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
-                .contentShape(Circle())
+                .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation {
                         isCompact.toggle()
@@ -180,14 +206,14 @@ struct WidgetView: View {
                 }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 9, weight: .black))
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(.white)
                         .padding(6)
-                        .background(Color.white.opacity(0.1))
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Rectangle())
+                        .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
-                .contentShape(Circle())
+                .contentShape(Rectangle())
                 .onTapGesture {
                     panelManager.hide()
                 }
@@ -195,173 +221,159 @@ struct WidgetView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.top, 12)
+        .padding(.top, 14)
         .padding(.bottom, 6)
     }
     
-    // MARK: - Y2K Active Setup Card
+    // MARK: - Y2K Active Setup Section
     private var activeSetupSection: some View {
         VStack(spacing: 10) {
-            // Active Output Row
+            // Output Wireframe Card
             let currentOutput = audioManager.outputDevices.first(where: { $0.id == audioManager.currentOutputDeviceID })
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.cyan.opacity(0.2))
-                        .frame(width: 32, height: 32)
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.cyan.opacity(0.4), lineWidth: 0.5))
-                    
+            VStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: currentOutput?.iconName ?? "speaker.wave.2.fill")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.cyan)
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("// OUTPUT_SOURCE")
-                        .font(.system(size: 8, weight: .heavy, design: .monospaced))
-                        .foregroundColor(.cyan.opacity(0.8))
-                    
-                    Text(currentOutput?.name ?? "NO_DEVICE")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
-                        .lineLimit(1)
+                    
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("// OUTPUT_DEVICE")
+                            .font(.system(size: 8, weight: .heavy, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.5))
+                        
+                        Text(currentOutput?.name.uppercased() ?? "NO_DEVICE")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                    }
+                    
+                    Spacer()
+                    
+                    // Mute Button
+                    Button(action: {
+                        audioManager.toggleOutputMute()
+                    }) {
+                        Text(audioManager.isOutputMuted ? "[ MUTED ]" : "[ MUTE ]")
+                            .font(.system(size: 9, weight: .black, design: .monospaced))
+                            .foregroundColor(audioManager.isOutputMuted ? .black : .white)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 4)
+                            .background(audioManager.isOutputMuted ? Color.white : Color.white.opacity(0.12))
+                            .clipShape(Rectangle())
+                            .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
+                    }
+                    .buttonStyle(.plain)
                 }
                 
-                Spacer()
-                
-                // Mute Output Toggle
-                Button(action: {
-                    audioManager.toggleOutputMute()
-                }) {
-                    Image(systemName: audioManager.isOutputMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(audioManager.isOutputMuted ? .pink : .cyan)
-                        .padding(6)
-                        .background(audioManager.isOutputMuted ? Color.pink.opacity(0.2) : Color.cyan.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(audioManager.isOutputMuted ? Color.pink.opacity(0.5) : Color.cyan.opacity(0.3), lineWidth: 0.5))
+                // Y2K Hatched Volume Bar
+                HStack(spacing: 8) {
+                    Y2KHatchedSlider(
+                        value: Binding(
+                            get: { audioManager.outputVolume },
+                            set: { audioManager.setOutputVolume($0) }
+                        ),
+                        onEditingChanged: { newVol in
+                            audioManager.setOutputVolume(newVol)
+                        }
+                    )
+                    
+                    Text("\(Int(audioManager.outputVolume * 100))%")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white)
+                        .frame(width: 32, alignment: .trailing)
                 }
-                .buttonStyle(.plain)
             }
+            .padding(10)
+            .background(Color.white.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+            )
             
-            // Output Volume Slider
-            HStack(spacing: 8) {
-                Image(systemName: "speaker.fill")
-                    .font(.system(size: 9))
-                    .foregroundColor(.cyan.opacity(0.7))
-                
-                Slider(value: Binding(
-                    get: { audioManager.outputVolume },
-                    set: { audioManager.setOutputVolume($0) }
-                ), in: 0...1)
-                .accentColor(.cyan)
-                
-                Text("\(Int(audioManager.outputVolume * 100))%")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundColor(.cyan)
-                    .frame(width: 32, alignment: .trailing)
-            }
-            
-            Divider()
-                .background(Color.white.opacity(0.12))
-            
-            // Active Input Row
+            // Input Wireframe Card
             let currentInput = audioManager.inputDevices.first(where: { $0.id == audioManager.currentInputDeviceID })
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.pink.opacity(0.2))
-                        .frame(width: 32, height: 32)
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.pink.opacity(0.4), lineWidth: 0.5))
-                    
+            VStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: currentInput?.iconName ?? "mic.fill")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.pink)
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("// INPUT_SOURCE")
-                        .font(.system(size: 8, weight: .heavy, design: .monospaced))
-                        .foregroundColor(.pink.opacity(0.8))
-                    
-                    Text(currentInput?.name ?? "NO_DEVICE")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
-                        .lineLimit(1)
+                    
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("// INPUT_DEVICE")
+                            .font(.system(size: 8, weight: .heavy, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.5))
+                        
+                        Text(currentInput?.name.uppercased() ?? "NO_DEVICE")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                    }
+                    
+                    Spacer()
+                    
+                    // Mute Button
+                    Button(action: {
+                        audioManager.toggleInputMute()
+                    }) {
+                        Text(audioManager.isInputMuted ? "[ MUTED ]" : "[ MUTE ]")
+                            .font(.system(size: 9, weight: .black, design: .monospaced))
+                            .foregroundColor(audioManager.isInputMuted ? .black : .white)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 4)
+                            .background(audioManager.isInputMuted ? Color.white : Color.white.opacity(0.12))
+                            .clipShape(Rectangle())
+                            .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
+                    }
+                    .buttonStyle(.plain)
                 }
                 
-                Spacer()
-                
-                // Mute Input Toggle
-                Button(action: {
-                    audioManager.toggleInputMute()
-                }) {
-                    Image(systemName: audioManager.isInputMuted ? "mic.slash.fill" : "mic.fill")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(audioManager.isInputMuted ? .pink : .purple)
-                        .padding(6)
-                        .background(audioManager.isInputMuted ? Color.pink.opacity(0.2) : Color.purple.opacity(0.15))
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(audioManager.isInputMuted ? Color.pink.opacity(0.5) : Color.purple.opacity(0.3), lineWidth: 0.5))
+                // Y2K Hatched Volume Bar
+                HStack(spacing: 8) {
+                    Y2KHatchedSlider(
+                        value: Binding(
+                            get: { audioManager.inputVolume },
+                            set: { audioManager.setInputVolume($0) }
+                        ),
+                        onEditingChanged: { newVol in
+                            audioManager.setInputVolume(newVol)
+                        }
+                    )
+                    
+                    Text("\(Int(audioManager.inputVolume * 100))%")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white)
+                        .frame(width: 32, alignment: .trailing)
                 }
-                .buttonStyle(.plain)
             }
-            
-            // Input Volume Slider
-            HStack(spacing: 8) {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 9))
-                    .foregroundColor(.pink.opacity(0.7))
-                
-                Slider(value: Binding(
-                    get: { audioManager.inputVolume },
-                    set: { audioManager.setInputVolume($0) }
-                ), in: 0...1)
-                .accentColor(.pink)
-                
-                Text("\(Int(audioManager.inputVolume * 100))%")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundColor(.pink)
-                    .frame(width: 32, alignment: .trailing)
-            }
+            .padding(10)
+            .background(Color.white.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+            )
         }
-        .padding(11)
-        .background(Color.black.opacity(0.25))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.cyan.opacity(0.3), Color.pink.opacity(0.3)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 0.5
-                )
-        )
     }
     
-    // MARK: - Y2K Minimalist Tab Switcher
-    private var y2kTabPicker: some View {
+    // MARK: - Y2K Monochromatic Source Switcher
+    private var y2kSourceSwitcher: some View {
         HStack(spacing: 6) {
             Button(action: {
                 selectedTab = .output
             }) {
                 HStack(spacing: 6) {
-                    Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: 10))
-                    Text("// OUTPUT (\(audioManager.outputDevices.count))")
+                    Y2KStar(size: 10)
+                        .foregroundColor(selectedTab == .output ? .black : .white)
+                    Text("OUTPUT [\(audioManager.outputDevices.count)]")
                         .font(.system(size: 10, weight: .black, design: .monospaced))
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                .background(selectedTab == .output ? Color.cyan.opacity(0.25) : Color.white.opacity(0.04))
-                .foregroundColor(selectedTab == .output ? .cyan : .white.opacity(0.5))
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(selectedTab == .output ? Color.cyan.opacity(0.6) : Color.clear, lineWidth: 1)
-                )
+                .padding(.vertical, 7)
+                .background(selectedTab == .output ? Color.white : Color.white.opacity(0.05))
+                .foregroundColor(selectedTab == .output ? .black : .white.opacity(0.6))
+                .clipShape(Rectangle())
+                .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
             
@@ -369,26 +381,22 @@ struct WidgetView: View {
                 selectedTab = .input
             }) {
                 HStack(spacing: 6) {
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 10))
-                    Text("// INPUT (\(audioManager.inputDevices.count))")
+                    Y2KStar(size: 10)
+                        .foregroundColor(selectedTab == .input ? .black : .white)
+                    Text("INPUT [\(audioManager.inputDevices.count)]")
                         .font(.system(size: 10, weight: .black, design: .monospaced))
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                .background(selectedTab == .input ? Color.pink.opacity(0.25) : Color.white.opacity(0.04))
-                .foregroundColor(selectedTab == .input ? .pink : .white.opacity(0.5))
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(selectedTab == .input ? Color.pink.opacity(0.6) : Color.clear, lineWidth: 1)
-                )
+                .padding(.vertical, 7)
+                .background(selectedTab == .input ? Color.white : Color.white.opacity(0.05))
+                .foregroundColor(selectedTab == .input ? .black : .white.opacity(0.6))
+                .clipShape(Rectangle())
+                .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
         }
         .padding(3)
-        .background(Color.black.opacity(0.3))
-        .clipShape(Capsule())
+        .background(Color.black.opacity(0.4))
     }
     
     // MARK: - Device List
@@ -402,8 +410,8 @@ struct WidgetView: View {
                     VStack(spacing: 6) {
                         Image(systemName: "slash.circle")
                             .font(.system(size: 20))
-                            .foregroundColor(.cyan.opacity(0.6))
-                        Text("// NO_DEVICES_FOUND")
+                            .foregroundColor(.white.opacity(0.5))
+                        Text("// NO_AUDIO_SOURCES")
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                             .foregroundColor(.white.opacity(0.5))
                     }
@@ -412,7 +420,6 @@ struct WidgetView: View {
                     ForEach(devices) { device in
                         let isActive = device.id == activeID
                         let isHovered = hoveredDeviceID == device.id
-                        let accentColor: Color = selectedTab == .output ? .cyan : .pink
                         
                         Button(action: {
                             if selectedTab == .output {
@@ -423,47 +430,45 @@ struct WidgetView: View {
                         }) {
                             HStack(spacing: 10) {
                                 ZStack {
-                                    Circle()
-                                        .fill(isActive ? accentColor.opacity(0.25) : Color.white.opacity(0.08))
-                                        .frame(width: 28, height: 28)
-                                        .overlay(Circle().stroke(isActive ? accentColor.opacity(0.6) : Color.clear, lineWidth: 0.5))
+                                    Rectangle()
+                                        .fill(isActive ? Color.white : Color.white.opacity(0.1))
+                                        .frame(width: 26, height: 26)
+                                        .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
                                     
                                     Image(systemName: device.iconName)
                                         .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(isActive ? accentColor : .white.opacity(0.75))
+                                        .foregroundColor(isActive ? .black : .white)
                                 }
                                 
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(device.name)
-                                        .font(.system(size: 11, weight: isActive ? .bold : .medium, design: .monospaced))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(device.name.uppercased())
+                                        .font(.system(size: 11, weight: isActive ? .black : .bold, design: .monospaced))
                                         .foregroundColor(isActive ? .white : .white.opacity(0.85))
                                         .lineLimit(1)
                                     
-                                    Text(isActive ? "// ACTIVE_SOURCE" : "// AVAILABLE")
+                                    Text(isActive ? "✦ ACTIVE_SOURCE" : "AVAILABLE")
                                         .font(.system(size: 8, weight: .heavy, design: .monospaced))
-                                        .foregroundColor(isActive ? accentColor : .white.opacity(0.35))
+                                        .foregroundColor(isActive ? .white : .white.opacity(0.4))
                                 }
                                 
                                 Spacer()
                                 
                                 if isActive {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(accentColor)
-                                        .shadow(color: accentColor.opacity(0.8), radius: 4)
+                                    Y2KStar(size: 12)
+                                        .rotationEffect(.degrees(starRotation * 1.5))
                                 }
                             }
                             .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 7)
                             .background(
                                 isActive
-                                    ? accentColor.opacity(0.12)
-                                    : (isHovered ? Color.white.opacity(0.06) : Color.white.opacity(0.025))
+                                    ? Color.white.opacity(0.15)
+                                    : (isHovered ? Color.white.opacity(0.08) : Color.white.opacity(0.03))
                             )
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .clipShape(Rectangle())
                             .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(isActive ? accentColor.opacity(0.4) : Color.clear, lineWidth: 1)
+                                Rectangle()
+                                    .stroke(isActive ? Color.white : Color.white.opacity(0.15), lineWidth: isActive ? 1 : 0.5)
                             )
                         }
                         .buttonStyle(.plain)
@@ -478,6 +483,19 @@ struct WidgetView: View {
         }
     }
     
+    // MARK: - Y2K Decorative Scale Line
+    private var y2kScaleDivider: some View {
+        HStack(spacing: 2) {
+            ForEach(0..<30) { i in
+                Rectangle()
+                    .fill(Color.white.opacity(i % 5 == 0 ? 0.5 : 0.2))
+                    .frame(width: 1, height: i % 5 == 0 ? 6 : 3)
+                if i < 29 { Spacer(minLength: 0) }
+            }
+        }
+        .frame(height: 8)
+    }
+    
     // MARK: - Compact Mode View
     private var compactView: some View {
         VStack(spacing: 8) {
@@ -486,9 +504,8 @@ struct WidgetView: View {
             
             HStack {
                 HStack(spacing: 8) {
-                    Image(systemName: currentOutput?.iconName ?? "speaker.wave.2.fill")
-                        .foregroundColor(.cyan)
-                    Text(currentOutput?.name ?? "NO_OUTPUT")
+                    Y2KStar(size: 10)
+                    Text(currentOutput?.name.uppercased() ?? "NO_OUTPUT")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundColor(.white)
                         .lineLimit(1)
@@ -497,11 +514,13 @@ struct WidgetView: View {
                 Button(action: {
                     audioManager.toggleOutputMute()
                 }) {
-                    Image(systemName: audioManager.isOutputMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                        .foregroundColor(audioManager.isOutputMuted ? .pink : .cyan)
+                    Text(audioManager.isOutputMuted ? "[ MUTED ]" : "[ MUTE ]")
+                        .font(.system(size: 8, weight: .black, design: .monospaced))
+                        .foregroundColor(audioManager.isOutputMuted ? .black : .white)
                         .padding(5)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .background(audioManager.isOutputMuted ? Color.white : Color.white.opacity(0.1))
+                        .clipShape(Rectangle())
+                        .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
@@ -509,8 +528,8 @@ struct WidgetView: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: currentInput?.iconName ?? "mic.fill")
-                        .foregroundColor(.pink)
-                    Text(currentInput?.name ?? "NO_INPUT")
+                        .foregroundColor(.white)
+                    Text(currentInput?.name.uppercased() ?? "NO_INPUT")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundColor(.white)
                         .lineLimit(1)
@@ -519,18 +538,21 @@ struct WidgetView: View {
                 Button(action: {
                     audioManager.toggleInputMute()
                 }) {
-                    Image(systemName: audioManager.isInputMuted ? "mic.slash.fill" : "mic.fill")
-                        .foregroundColor(audioManager.isInputMuted ? .pink : .purple)
+                    Text(audioManager.isInputMuted ? "[ MUTED ]" : "[ MUTE ]")
+                        .font(.system(size: 8, weight: .black, design: .monospaced))
+                        .foregroundColor(audioManager.isInputMuted ? .black : .white)
                         .padding(5)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .background(audioManager.isInputMuted ? Color.white : Color.white.opacity(0.1))
+                        .clipShape(Rectangle())
+                        .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(8)
-        .background(Color.black.opacity(0.3))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(10)
+        .background(Color.white.opacity(0.04))
+        .clipShape(Rectangle())
+        .overlay(Rectangle().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
     }
     
     // MARK: - Footer
@@ -542,14 +564,15 @@ struct WidgetView: View {
                 HStack(spacing: 5) {
                     Image(systemName: "gearshape")
                         .font(.system(size: 9))
-                    Text("// SOUND_SETTINGS")
+                    Text("[ SOUND_PREFS ]")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                 }
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.white.opacity(0.75))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.white.opacity(0.06))
-                .clipShape(Capsule())
+                .background(Color.white.opacity(0.08))
+                .clipShape(Rectangle())
+                .overlay(Rectangle().stroke(Color.white.opacity(0.25), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
             
@@ -561,15 +584,15 @@ struct WidgetView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 9, weight: .bold))
-                    Text("// REFRESH")
+                    Text("[ REFRESH ]")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                 }
-                .foregroundColor(.cyan)
+                .foregroundColor(.white)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.cyan.opacity(0.15))
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.cyan.opacity(0.4), lineWidth: 0.5))
+                .background(Color.white.opacity(0.15))
+                .clipShape(Rectangle())
+                .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
         }
