@@ -19,6 +19,8 @@ struct SettingsView: View {
     @State private var selectedOutputUID: String = ""
     @State private var selectedInputUID: String = ""
     @State private var isCreatingProfile: Bool = false
+    @State private var isRecordingHotkey: Bool = false
+    @State private var hotkeyMonitor: Any? = nil
     @State private var diagnosticResults: [TestResult]? = nil
     
     var body: some View {
@@ -43,7 +45,7 @@ struct SettingsView: View {
             
             footerActionBar
         }
-        .frame(width: 450, height: 570)
+        .frame(width: 450, height: 550)
         .background(
             ZStack {
                 VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
@@ -287,53 +289,36 @@ struct SettingsView: View {
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.white.opacity(0.2), lineWidth: 0.5))
     }
     
-    // MARK: - Section 2: Shortcuts & Menu Bar Customization
+    // MARK: - Section 2: Dynamic Custom Global Hotkey Section
     private var shortcutsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader(title: "// MENU_BAR_&_SHORTCUTS")
+            sectionHeader(title: "// DYNAMIC_GLOBAL_HOTKEY")
             
-            settingRow(title: "Global Hotkey", subtitle: "Toggle widget popover from anywhere") {
-                Text("[ ⌥ SPACE ]")
-                    .font(.system(size: 10, weight: .black, design: .monospaced))
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.white)
-                    .clipShape(Rectangle())
-            }
-            
-            VStack(alignment: .leading, spacing: 6) {
-                Text("MENU BAR ICON STYLE:")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white)
-                Text("Select your preferred status bar symbol")
-                    .font(.system(size: 9))
-                    .foregroundColor(.white.opacity(0.5))
-                
-                HStack(spacing: 8) {
-                    ForEach(0..<panelManager.iconNames.count, id: \.self) { idx in
-                        let isSelected = panelManager.menuIconIndex == idx
-                        Button(action: {
-                            panelManager.setIcon(index: idx)
-                        }) {
-                            HStack(spacing: 4) {
-                                Y2KStar(size: 8)
-                                    .foregroundColor(isSelected ? .black : .white)
-                                Text(panelManager.iconLabels[idx])
-                                    .font(.system(size: 9, weight: .black, design: .monospaced))
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(isSelected ? Color.white : Color.white.opacity(0.08))
-                            .foregroundColor(isSelected ? .black : .white.opacity(0.85))
-                            .clipShape(Rectangle())
-                            .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
-                        }
-                        .buttonStyle(.plain)
-                        .focusEffectDisabled()
+            settingRow(title: "Custom Global Hotkey", subtitle: "Press button below & hit your custom key combination") {
+                Button(action: {
+                    if isRecordingHotkey {
+                        stopRecordingHotkey()
+                    } else {
+                        startRecordingHotkey()
                     }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: isRecordingHotkey ? "record.circle.fill" : "keyboard")
+                            .font(.system(size: 10))
+                            .foregroundColor(isRecordingHotkey ? .red : (panelManager.currentHotKey == CustomHotKey.defaultHotkey ? .black : .white))
+                        
+                        Text(isRecordingHotkey ? "[ PRESS KEYS... ]" : "[ \(panelManager.currentHotKey.displayString) ]")
+                            .font(.system(size: 10, weight: .black, design: .monospaced))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(isRecordingHotkey ? Color.red.opacity(0.25) : Color.white)
+                    .foregroundColor(isRecordingHotkey ? .white : .black)
+                    .clipShape(Rectangle())
+                    .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
                 }
-                .padding(.top, 2)
+                .buttonStyle(.plain)
+                .focusEffectDisabled()
             }
             
             Toggle(isOn: $showVolumeInMenuBar) {
@@ -352,6 +337,28 @@ struct SettingsView: View {
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+    }
+    
+    private func startRecordingHotkey() {
+        isRecordingHotkey = true
+        hotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let flags = event.modifierFlags.intersection([.control, .option, .shift, .command])
+            let newKey = CustomHotKey(keyCode: event.keyCode, modifierFlags: flags)
+            
+            Task { @MainActor in
+                self.panelManager.updateHotkey(newKey)
+                self.stopRecordingHotkey()
+            }
+            return nil
+        }
+    }
+    
+    private func stopRecordingHotkey() {
+        isRecordingHotkey = false
+        if let monitor = hotkeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            hotkeyMonitor = nil
+        }
     }
     
     // MARK: - Section 3: App Behavior
@@ -506,7 +513,7 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Window Controller for Settings Window (Spawns LEFT of Widget & Above Popover)
+// MARK: - Window Controller for Settings Window
 @MainActor
 final class SettingsWindowController: NSObject {
     static let shared = SettingsWindowController()
@@ -522,7 +529,7 @@ final class SettingsWindowController: NSObject {
             let hostingView = NSHostingView(rootView: settingsView)
             
             win = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 450, height: 570),
+                contentRect: NSRect(x: 0, y: 0, width: 450, height: 550),
                 styleMask: [.borderless, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -534,19 +541,18 @@ final class SettingsWindowController: NSObject {
             win.isMovableByWindowBackground = true
             win.contentView = hostingView
             win.isReleasedWhenClosed = false
-            win.level = .floating // Appears ON TOP / IN FRONT of the widget
+            win.level = .floating
             
             self.window = win
         }
         
-        // Position directly to the LEFT of the FloatingPanelManager widget:
         if let panel = FloatingPanelManager.shared.panel {
             let pFrame = panel.frame
             let winWidth: CGFloat = 450
-            let winHeight: CGFloat = 570
+            let winHeight: CGFloat = 550
             
             var posX = pFrame.minX - winWidth - 12.0
-            if posX < 10 { // If screen left edge is reached, place to the right
+            if posX < 10 {
                 posX = pFrame.maxX + 12.0
             }
             

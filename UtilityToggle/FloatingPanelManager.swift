@@ -25,15 +25,19 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     private var statusItem: NSStatusItem?
     private var globalEventMonitor: Any?
     private var globalHotkeyMonitor: Any?
+    private var localHotkeyMonitor: Any?
     
     @Published var isVisible: Bool = true
     @Published var menuIconIndex: Int = 0
+    @Published var currentHotKey: CustomHotKey = CustomHotKey.defaultHotkey
     
+    private let hotkeyStorageKey = "UserCustomHotKeyStorageKey"
     let iconNames = ["waveform", "star.fill", "disc.fill"]
     let iconLabels = ["WAVEFORM 🌊", "STAR ✦", "DISC 💿"]
 
     override init() {
         super.init()
+        loadHotkeyFromDisk()
     }
     
     func setupPanel(contentView: AnyView) {
@@ -120,6 +124,27 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         }
     }
     
+    func updateHotkey(_ newHotKey: CustomHotKey) {
+        self.currentHotKey = newHotKey
+        persistHotkeyToDisk(newHotKey)
+        setupGlobalHotkey()
+    }
+    
+    private func loadHotkeyFromDisk() {
+        if let data = UserDefaults.standard.data(forKey: hotkeyStorageKey),
+           let decoded = try? JSONDecoder().decode(CustomHotKey.self, from: data) {
+            self.currentHotKey = decoded
+        } else {
+            self.currentHotKey = CustomHotKey.defaultHotkey
+        }
+    }
+    
+    private func persistHotkeyToDisk(_ hotkey: CustomHotKey) {
+        if let encoded = try? JSONEncoder().encode(hotkey) {
+            UserDefaults.standard.set(encoded, forKey: hotkeyStorageKey)
+        }
+    }
+    
     func positionBelowStatusItem() {
         guard let panel = panel,
               let button = statusItem?.button,
@@ -147,12 +172,41 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     }
     
     private func setupGlobalHotkey() {
+        if let monitor = globalHotkeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalHotkeyMonitor = nil
+        }
+        if let monitor = localHotkeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            localHotkeyMonitor = nil
+        }
+        
+        // Global Monitor (when app is in background)
         globalHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.modifierFlags.contains(.option) && event.keyCode == 49 {
+            guard let self = self else { return }
+            let requiredFlags = self.currentHotKey.flags
+            let eventFlags = event.modifierFlags.intersection([.control, .option, .shift, .command])
+            
+            if event.keyCode == self.currentHotKey.keyCode && (requiredFlags.isEmpty || eventFlags == requiredFlags) {
                 Task { @MainActor [weak self] in
                     self?.toggleVisibility()
                 }
             }
+        }
+        
+        // Local Monitor (when app is active)
+        localHotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return event }
+            let requiredFlags = self.currentHotKey.flags
+            let eventFlags = event.modifierFlags.intersection([.control, .option, .shift, .command])
+            
+            if event.keyCode == self.currentHotKey.keyCode && (requiredFlags.isEmpty || eventFlags == requiredFlags) {
+                Task { @MainActor [weak self] in
+                    self?.toggleVisibility()
+                }
+                return nil // consume event
+            }
+            return event
         }
     }
     
