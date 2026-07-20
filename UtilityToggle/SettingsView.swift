@@ -43,7 +43,7 @@ struct SettingsView: View {
             
             footerActionBar
         }
-        .frame(width: 440, height: 560)
+        .frame(width: 450, height: 570)
         .background(
             ZStack {
                 VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
@@ -58,7 +58,7 @@ struct SettingsView: View {
         .shadow(color: Color.black.opacity(0.7), radius: 24, x: 0, y: 10)
     }
     
-    // MARK: - Header Bar with Y2K Monochromatic Close Button
+    // MARK: - Header Bar
     private var headerBar: some View {
         HStack {
             HStack(spacing: 8) {
@@ -100,7 +100,7 @@ struct SettingsView: View {
         .padding(.bottom, 10)
     }
     
-    // MARK: - Profile Management Section
+    // MARK: - Section 1: Profile Management
     private var profileManagementSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "// AUDIO_PROFILES_&_DEVICES")
@@ -140,7 +140,7 @@ struct SettingsView: View {
                 .focusEffectDisabled()
             }
         }
-        .padding(12)
+        .padding(14)
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 0.5))
@@ -222,7 +222,7 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .frame(width: 170)
+                .frame(width: 180)
             }
             
             HStack {
@@ -237,7 +237,7 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .frame(width: 170)
+                .frame(width: 180)
             }
             
             HStack(spacing: 8) {
@@ -287,9 +287,9 @@ struct SettingsView: View {
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.white.opacity(0.2), lineWidth: 0.5))
     }
     
-    // MARK: - Shortcuts & Menu Bar Section
+    // MARK: - Section 2: Shortcuts & Menu Bar Customization
     private var shortcutsSection: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "// MENU_BAR_&_SHORTCUTS")
             
             settingRow(title: "Global Hotkey", subtitle: "Toggle widget popover from anywhere") {
@@ -304,28 +304,36 @@ struct SettingsView: View {
             
             VStack(alignment: .leading, spacing: 6) {
                 Text("MENU BAR ICON STYLE:")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
+                Text("Select your preferred status bar symbol")
+                    .font(.system(size: 9))
+                    .foregroundColor(.white.opacity(0.5))
                 
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     ForEach(0..<panelManager.iconNames.count, id: \.self) { idx in
                         let isSelected = panelManager.menuIconIndex == idx
                         Button(action: {
                             panelManager.setIcon(index: idx)
                         }) {
-                            Text(panelManager.iconLabels[idx])
-                                .font(.system(size: 9, weight: .black, design: .monospaced))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
-                                .background(isSelected ? Color.white : Color.white.opacity(0.1))
-                                .foregroundColor(isSelected ? .black : .white.opacity(0.8))
-                                .clipShape(Rectangle())
-                                .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
+                            HStack(spacing: 4) {
+                                Y2KStar(size: 8)
+                                    .foregroundColor(isSelected ? .black : .white)
+                                Text(panelManager.iconLabels[idx])
+                                    .font(.system(size: 9, weight: .black, design: .monospaced))
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(isSelected ? Color.white : Color.white.opacity(0.08))
+                            .foregroundColor(isSelected ? .black : .white.opacity(0.85))
+                            .clipShape(Rectangle())
+                            .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
                         }
                         .buttonStyle(.plain)
                         .focusEffectDisabled()
                     }
                 }
+                .padding(.top, 2)
             }
             
             Toggle(isOn: $showVolumeInMenuBar) {
@@ -340,15 +348,15 @@ struct SettingsView: View {
             }
             .toggleStyle(.checkbox)
         }
-        .padding(12)
+        .padding(14)
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 0.5))
     }
     
-    // MARK: - Behavior Section
+    // MARK: - Section 3: App Behavior
     private var behaviorSection: some View {
-        VStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "// APP_BEHAVIOR")
             
             settingRow(title: "Launch at Login", subtitle: "Automatically start widget when macOS boots up") {
@@ -392,15 +400,15 @@ struct SettingsView: View {
             }
             .toggleStyle(.checkbox)
         }
-        .padding(12)
+        .padding(14)
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 0.5))
     }
     
-    // MARK: - Diagnostics Section
+    // MARK: - Section 4: System Diagnostics
     private var diagnosticsSection: some View {
-        VStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: "// SYSTEM_DIAGNOSTICS")
             
             Button(action: {
@@ -446,7 +454,7 @@ struct SettingsView: View {
                 .clipShape(Rectangle())
             }
         }
-        .padding(12)
+        .padding(14)
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 0.5))
@@ -514,7 +522,7 @@ final class SettingsWindowController: NSObject {
             let hostingView = NSHostingView(rootView: settingsView)
             
             win = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 440, height: 560),
+                contentRect: NSRect(x: 0, y: 0, width: 450, height: 570),
                 styleMask: [.borderless, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -534,8 +542,8 @@ final class SettingsWindowController: NSObject {
         // Position directly to the LEFT of the FloatingPanelManager widget:
         if let panel = FloatingPanelManager.shared.panel {
             let pFrame = panel.frame
-            let winWidth: CGFloat = 440
-            let winHeight: CGFloat = 560
+            let winWidth: CGFloat = 450
+            let winHeight: CGFloat = 570
             
             var posX = pFrame.minX - winWidth - 12.0
             if posX < 10 { // If screen left edge is reached, place to the right

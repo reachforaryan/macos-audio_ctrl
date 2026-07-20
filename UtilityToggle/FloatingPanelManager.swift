@@ -29,8 +29,8 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     @Published var isVisible: Bool = true
     @Published var menuIconIndex: Int = 0
     
-    let iconNames = ["waveform.circle.fill", "sparkles", "disc.fill"]
-    let iconLabels = ["WAVEFORM", "STAR ✦", "DISC 💿"]
+    let iconNames = ["waveform", "star.fill", "disc.fill"]
+    let iconLabels = ["WAVEFORM 🌊", "STAR ✦", "DISC 💿"]
 
     override init() {
         super.init()
@@ -112,8 +112,11 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         guard let button = statusItem?.button else { return }
         let symbolName = iconNames[menuIconIndex]
         if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Audio Switcher") {
-            image.isTemplate = true
-            button.image = image
+            let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .bold)
+            let configured = image.withSymbolConfiguration(config) ?? image
+            configured.isTemplate = true
+            button.image = nil
+            button.image = configured
         }
     }
     
