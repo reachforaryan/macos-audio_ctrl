@@ -23,10 +23,5 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         let contentView = AnyView(WidgetView())
         FloatingPanelManager.shared.setupPanel(contentView: contentView)
-        
-        // Execute automated unit test suite
-        Task { @MainActor in
-            _ = AudioDeviceTester.runAllTests()
-        }
     }
 }
