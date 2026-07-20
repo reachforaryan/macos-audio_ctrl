@@ -551,20 +551,44 @@ final class AudioDeviceManager: ObservableObject {
     
     private func attachDeviceListener(deviceID: AudioObjectID, isOutput: Bool) {
         let scope = isOutput ? kAudioDevicePropertyScopeOutput : kAudioDevicePropertyScopeInput
+        let channelsToListen: [UInt32] = [0, 1, 2]
         
-        var volAddress = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyVolumeScalar,
+        for element in channelsToListen {
+            var volAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyVolumeScalar,
+                mScope: scope,
+                mElement: element
+            )
+            
+            AudioObjectAddPropertyListenerBlock(deviceID, &volAddress, DispatchQueue.main) { [weak self] _, _ in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    if isOutput && self.currentOutputDeviceID == deviceID {
+                        let newVol = self.getDeviceVolume(deviceID: deviceID, isOutput: true)
+                        self.outputVolume = newVol
+                        FloatingPanelManager.shared.updateStatusItem(volume: newVol, isMuted: self.isOutputMuted)
+                    } else if !isOutput && self.currentInputDeviceID == deviceID {
+                        self.inputVolume = self.getDeviceVolume(deviceID: deviceID, isOutput: false)
+                    }
+                }
+            }
+        }
+        
+        var muteAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
             mScope: scope,
             mElement: kAudioObjectPropertyElementMain
         )
         
-        AudioObjectAddPropertyListenerBlock(deviceID, &volAddress, DispatchQueue.main) { [weak self] _, _ in
+        AudioObjectAddPropertyListenerBlock(deviceID, &muteAddress, DispatchQueue.main) { [weak self] _, _ in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 if isOutput && self.currentOutputDeviceID == deviceID {
-                    self.outputVolume = self.getDeviceVolume(deviceID: deviceID, isOutput: true)
+                    let newMute = self.getDeviceMute(deviceID: deviceID, isOutput: true)
+                    self.isOutputMuted = newMute
+                    FloatingPanelManager.shared.updateStatusItem(volume: self.outputVolume, isMuted: newMute)
                 } else if !isOutput && self.currentInputDeviceID == deviceID {
-                    self.inputVolume = self.getDeviceVolume(deviceID: deviceID, isOutput: false)
+                    self.isInputMuted = self.getDeviceMute(deviceID: deviceID, isOutput: false)
                 }
             }
         }
