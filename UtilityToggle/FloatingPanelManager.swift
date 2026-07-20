@@ -198,6 +198,13 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         // Local Monitor (when app is active)
         localHotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self else { return event }
+            
+            // If user is typing in a text field / text view, allow normal typing events to pass through
+            if let firstResponder = NSApp.keyWindow?.firstResponder,
+               firstResponder is NSTextView || firstResponder is NSTextField {
+                return event
+            }
+            
             let requiredFlags = self.currentHotKey.flags
             let eventFlags = event.modifierFlags.intersection([.control, .option, .shift, .command])
             

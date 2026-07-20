@@ -513,7 +513,7 @@ struct SettingsView: View {
     }
 }
 
-class CustomSettingsPanel: NSPanel {
+class CustomSettingsWindow: NSWindow {
     override var canBecomeKey: Bool {
         return true
     }
@@ -537,9 +537,9 @@ final class SettingsWindowController: NSObject {
             let settingsView = SettingsView(audioManager: audioManager)
             let hostingView = NSHostingView(rootView: settingsView)
             
-            win = CustomSettingsPanel(
+            win = CustomSettingsWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 450, height: 550),
-                styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
+                styleMask: [.borderless, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
             )
