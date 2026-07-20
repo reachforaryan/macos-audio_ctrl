@@ -1,48 +1,29 @@
-# UTILITY_TOGGLE // v2.0.0
+# AUDIO_CTRL // v2.0.0
 > Y2K MONOCHROMATIC MACOS MENU BAR AUDIO CONTROLLER & SMART PRESET ROUTER
 
-```
-==================================================================
-  [+] UTILITY_TOGGLE // SYSTEM_AUDIO_ROUTER            [ ⌥ SPACE ]
-==================================================================
-
-  +------------------------+    +------------------------------+
-  | OUTPUT VOLUME          |    | MIC INPUT LEVEL              |
-  | [85%] ||||||||||||||-- |    | [45%] |||||||-------         |
-  +------------------------+    +------------------------------+
-
-  + AUDIO PROFILES & ROUTING:
-  +--------------------------------------------------------------+
-  | [ GENERAL ]      | [ GAMING ]         | [ STUDIO ]           |
-  | (System Default) | (AirPods Wireless) | (CoreAudio DAC)      |
-  +--------------------------------------------------------------+
-
-  + LIVE OUTPUT SOUND EQUALIZER SPECTRUM (60 FPS):
-  |  |||||  ||||||||  ||||  ||||||  ||||||||  |||||  ||||||||    |
-
-  [ CONFIGURATION ]                                 [ CLOSE ]
-==================================================================
-```
+<div align="center">
+  <img src="./UtilityToggle/Assets.xcassets/image.png" width="70%">
+</div>
 
 ---
 
 ## // DIRECT DOWNLOAD (NO XCODE REQUIRED)
 
-Yes! General users **do not need Xcode** to run UtilityToggle. It runs as a native standalone macOS menu bar app.
+Yes! General users **do not need Xcode** to run AUDIO CTRL. It runs as a native standalone macOS menu bar app.
 
-- **[DOWNLOAD UTILITYTOGGLE V2.0 (.ZIP)](https://github.com/reachforaryan/UtilityToggle/releases/latest/download/UtilityToggle.zip)**
+- **[DOWNLOAD AUDIO_CTRL V2.0 (.ZIP)](https://github.com/reachforaryan/UtilityToggle/releases/latest/download/UtilityToggle.zip)**
 
 ### Quick Install for End Users:
 1. Download `UtilityToggle.zip` from the link above.
-2. Unzip the file and drag **UtilityToggle.app** into your `/Applications` folder.
-3. Open **UtilityToggle** from Finder or Spotlight (`Cmd + Space`).
-4. (Optional) Click `[ CONFIG ]` and enable **Launch at Login** so UtilityToggle runs automatically whenever your Mac starts up!
+2. Unzip the file and drag **AUDIO CTRL.app** into your `/Applications` folder.
+3. Open **AUDIO CTRL** from Finder or Spotlight (`Cmd + Space`).
+4. (Optional) Click `[ CONFIG ]` and enable **Launch at Login** so AUDIO CTRL runs automatically whenever your Mac starts up!
 
 ---
 
 ## // OVERVIEW & USE CASES
 
-UTILITY_TOGGLE is a lightweight macOS menu bar utility designed for fast, seamless audio device switching and volume control without opening System Settings.
+AUDIO_CTRL is a lightweight macOS menu bar utility designed for fast, seamless audio device switching and volume control without opening System Settings.
 
 - **Gaming & Streaming**: Instant one-click switch between desktop speakers and gaming headsets with custom volume levels.
 - **Music & Audio Production**: Route input/output audio to external DACs and studio mics with real-time spectrum visualizers.

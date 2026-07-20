@@ -207,9 +207,9 @@ struct WidgetView: View {
                 
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 6) {
-                        Text("AUDIO // SYSTEM 2000")
+                        Text("AUDIO_CTRL // SYSTEM 2000")
                             .font(.system(size: 11, weight: .black, design: .monospaced))
-                            .foregroundColor(.white)
+                            .foregroundColor(themeManager.primaryColor)
                         
                         Text("[ ⌥SPACE ]")
                             .font(.system(size: 8, weight: .bold, design: .monospaced))

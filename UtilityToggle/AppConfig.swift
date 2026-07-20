@@ -69,10 +69,10 @@ public enum AppConfig {
     
     // MARK: - String Literals & Labels
     public enum Strings {
-        public static let appName = "UTILITY_TOGGLE"
+        public static let appName = "AUDIO_CTRL"
         public static let versionText = "[ v2.0.0 ]"
-        public static let headerTitle = "UTILITY_TOGGLE // SYSTEM_AUDIO_ROUTER"
-        public static let configHeaderTitle = "UTILITY_TOGGLE // CONFIGURATION"
+        public static let headerTitle = "AUDIO_CTRL // SYSTEM_AUDIO_ROUTER"
+        public static let configHeaderTitle = "AUDIO_CTRL // CONFIGURATION"
         public static let defaultProfileName = "General"
         
         // Section Headers
