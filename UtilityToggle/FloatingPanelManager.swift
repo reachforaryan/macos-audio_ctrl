@@ -99,8 +99,15 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     
     func cycleMenuBarIcon() {
         menuIconIndex = (menuIconIndex + 1) % iconNames.count
-        if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: iconNames[menuIconIndex], accessibilityDescription: "Audio Switcher")
+        updateStatusItemImage()
+    }
+    
+    private func updateStatusItemImage() {
+        guard let button = statusItem?.button else { return }
+        let symbolName = iconNames[menuIconIndex]
+        if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Audio Switcher") {
+            image.isTemplate = true
+            button.image = image
         }
     }
     
@@ -131,9 +138,8 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     }
     
     private func setupGlobalHotkey() {
-        // Option + Space Global Hotkey to Toggle Widget
         globalHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.modifierFlags.contains(.option) && event.keyCode == 49 { // 49 is Spacebar
+            if event.modifierFlags.contains(.option) && event.keyCode == 49 {
                 Task { @MainActor [weak self] in
                     self?.toggleVisibility()
                 }
@@ -183,8 +189,8 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     
     private func setupMenuExtra() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        updateStatusItemImage()
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: iconNames[menuIconIndex], accessibilityDescription: "Audio Switcher")
             button.action = #selector(menuBarButtonClicked)
             button.target = self
         }

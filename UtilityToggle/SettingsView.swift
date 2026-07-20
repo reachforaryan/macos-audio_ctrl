@@ -26,7 +26,7 @@ struct SettingsView: View {
             headerBar
             
             Divider()
-                .background(Color.white.opacity(0.2))
+                .background(Color.white.opacity(0.25))
             
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 16) {
@@ -39,7 +39,7 @@ struct SettingsView: View {
             }
             
             Divider()
-                .background(Color.white.opacity(0.2))
+                .background(Color.white.opacity(0.25))
             
             footerActionBar
         }
@@ -47,22 +47,53 @@ struct SettingsView: View {
         .background(
             ZStack {
                 VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
-                Color.black.opacity(0.92)
+                Color.black.opacity(0.94)
             }
         )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.35), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.7), radius: 24, x: 0, y: 10)
     }
     
-    // MARK: - Header
+    // MARK: - Header Bar with Y2K Monochromatic Close Button
     private var headerBar: some View {
         HStack {
-            Y2KStar(size: 14)
-            Text("UTILITY_TOGGLE // CONFIGURATION")
-                .font(.system(size: 12, weight: .black, design: .monospaced))
-                .foregroundColor(.white)
+            HStack(spacing: 8) {
+                Y2KStar(size: 14)
+                Text("UTILITY_TOGGLE // CONFIGURATION")
+                    .font(.system(size: 12, weight: .black, design: .monospaced))
+                    .foregroundColor(.white)
+            }
+            
             Spacer()
-            Text("[ v2.0.0 ]")
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .foregroundColor(.white.opacity(0.5))
+            
+            HStack(spacing: 8) {
+                Text("[ v2.0.0 ]")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.5))
+                
+                // Solid Y2K Monochromatic Close Button
+                Button(action: {
+                    SettingsWindowController.shared.close()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .black))
+                        Text("CLOSE")
+                            .font(.system(size: 9, weight: .black, design: .monospaced))
+                    }
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white)
+                    .clipShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .focusEffectDisabled()
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 14)
@@ -458,7 +489,7 @@ struct SettingsView: View {
     }
 }
 
-// Window Controller for Settings Window
+// MARK: - Window Controller for Settings Window (Spawns LEFT of Widget & Above Popover)
 @MainActor
 final class SettingsWindowController: NSObject {
     static let shared = SettingsWindowController()
@@ -466,32 +497,52 @@ final class SettingsWindowController: NSObject {
     private var window: NSWindow?
     
     func showWindow(audioManager: AudioDeviceManager) {
-        if let window = window {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
+        let win: NSWindow
+        if let existing = window {
+            win = existing
+        } else {
+            let settingsView = SettingsView(audioManager: audioManager)
+            let hostingView = NSHostingView(rootView: settingsView)
+            
+            win = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 440, height: 560),
+                styleMask: [.borderless, .fullSizeContentView],
+                backing: .buffered,
+                defer: false
+            )
+            
+            win.isOpaque = false
+            win.backgroundColor = .clear
+            win.hasShadow = true
+            win.isMovableByWindowBackground = true
+            win.contentView = hostingView
+            win.isReleasedWhenClosed = false
+            win.level = .floating // Appears ON TOP / IN FRONT of the widget
+            
+            self.window = win
         }
         
-        let settingsView = SettingsView(audioManager: audioManager)
-        let hostingView = NSHostingView(rootView: settingsView)
+        // Position directly to the LEFT of the FloatingPanelManager widget:
+        if let panel = FloatingPanelManager.shared.panel {
+            let pFrame = panel.frame
+            let winWidth: CGFloat = 440
+            let winHeight: CGFloat = 560
+            
+            var posX = pFrame.minX - winWidth - 12.0
+            if posX < 10 { // If screen left edge is reached, place to the right
+                posX = pFrame.maxX + 12.0
+            }
+            
+            var posY = pFrame.maxY - winHeight
+            if let screen = panel.screen ?? NSScreen.main {
+                posY = min(posY, screen.visibleFrame.maxY - winHeight - 10)
+            }
+            
+            win.setFrameOrigin(NSPoint(x: posX, y: posY))
+        } else {
+            win.center()
+        }
         
-        let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 560),
-            styleMask: [.titled, .closable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        
-        win.center()
-        win.title = "UtilityToggle Settings"
-        win.titlebarAppearsTransparent = true
-        win.titleVisibility = .hidden
-        win.isMovableByWindowBackground = true
-        win.contentView = hostingView
-        win.isReleasedWhenClosed = false
-        win.backgroundColor = .clear
-        
-        self.window = win
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }

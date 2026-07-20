@@ -79,23 +79,23 @@ struct Y2KMicLevelMeter: View {
     }
 }
 
-// MARK: - Y2K Animated Equalizer Spectrum
+// MARK: - Y2K Animated Equalizer Spectrum (Live 60 FPS Bouncing Bars)
 struct Y2KSpectrumVisualizer: View {
-    @State private var phase: Double = 0.0
+    var isMuted: Bool
     
     var body: some View {
-        HStack(spacing: 3) {
-            ForEach(0..<8) { i in
-                let height = 4.0 + sin(phase + Double(i) * 0.8) * 6.0
-                Rectangle()
-                    .fill(Color.white.opacity(0.85))
-                    .frame(width: 2, height: CGFloat(height))
+        TimelineView(.animation) { timeline in
+            let time = timeline.date.timeIntervalSince1970
+            HStack(spacing: 2.5) {
+                ForEach(0..<8, id: \.self) { i in
+                    let seed = Double(i) * 1.4
+                    let h = isMuted ? 3.0 : max(3.0, 4.0 + sin(time * 9.0 + seed) * 5.0 + cos(time * 14.0 + seed * 0.4) * 3.0)
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(width: 2.5, height: CGFloat(h))
+                }
             }
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true)) {
-                phase = .pi * 2
-            }
+            .frame(height: 16, alignment: .bottom)
         }
     }
 }
@@ -218,7 +218,7 @@ struct WidgetView: View {
             Spacer()
             
             // Equalizer Spectrum Visualizer
-            Y2KSpectrumVisualizer()
+            Y2KSpectrumVisualizer(isMuted: audioManager.isOutputMuted)
                 .padding(.trailing, 6)
             
             HStack(spacing: 6) {
