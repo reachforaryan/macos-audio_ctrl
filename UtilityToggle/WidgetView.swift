@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import AppKit
 import CoreAudio
 
 struct WidgetView: View {
@@ -12,6 +13,7 @@ struct WidgetView: View {
     
     @State private var selectedTab: DeviceType = .output
     @State private var isCompact: Bool = false
+    @State private var hoveredDeviceID: AudioObjectID? = nil
     
     enum DeviceType {
         case output
@@ -24,22 +26,22 @@ struct WidgetView: View {
             headerView
             
             if !isCompact {
-                // Current Setup Summary Hero Section
+                // Current Active Setup Hero Section
                 currentSetupCard
                     .padding(.horizontal, 14)
-                    .padding(.top, 10)
+                    .padding(.top, 8)
                     .padding(.bottom, 6)
                 
-                // Device Type Selector (Output / Input)
+                // Device Type Segmented Switcher
                 tabPickerView
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                 
-                // Audio Device List
+                // Audio Device Selection List
                 deviceListView
                     .frame(maxHeight: .infinity)
             } else {
-                // Mini Compact Mode Setup Card
+                // Compact Mode View
                 compactView
                     .padding(12)
             }
@@ -47,32 +49,32 @@ struct WidgetView: View {
             Divider()
                 .background(Color.white.opacity(0.12))
             
-            // Footer Action Bar
+            // Footer Bar
             footerView
         }
-        .frame(width: 330, height: isCompact ? 220 : 500)
+        .frame(width: 340, height: isCompact ? 210 : 490)
         .background(
             ZStack {
                 VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
                 
                 LinearGradient(
                     colors: [
-                        Color.black.opacity(0.85),
-                        Color(red: 0.08, green: 0.10, blue: 0.16).opacity(0.92)
+                        Color(red: 0.06, green: 0.08, blue: 0.12).opacity(0.94),
+                        Color(red: 0.10, green: 0.12, blue: 0.18).opacity(0.96)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
             }
         )
-        .cornerRadius(20)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.25),
-                            Color.white.opacity(0.05)
+                            Color.white.opacity(0.22),
+                            Color.white.opacity(0.06)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -80,32 +82,33 @@ struct WidgetView: View {
                     lineWidth: 1
                 )
         )
-        .shadow(color: Color.black.opacity(0.5), radius: 25, x: 0, y: 10)
-        .animation(.spring(response: 0.35, dampingFraction: 0.78), value: isCompact)
-        .animation(.spring(response: 0.35, dampingFraction: 0.78), value: selectedTab)
+        .shadow(color: Color.black.opacity(0.45), radius: 20, x: 0, y: 10)
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: isCompact)
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: selectedTab)
     }
     
     // MARK: - Header
     private var headerView: some View {
         HStack {
-            HStack(spacing: 8) {
+            HStack(spacing: 9) {
                 ZStack {
                     Circle()
                         .fill(
                             LinearGradient(
-                                colors: [Color.blue, Color.purple],
+                                colors: [Color.cyan, Color.purple],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .frame(width: 28, height: 28)
+                        .shadow(color: Color.cyan.opacity(0.4), radius: 6, x: 0, y: 0)
                     
                     Image(systemName: "waveform")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                 }
                 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text("Audio Control")
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
@@ -114,9 +117,10 @@ struct WidgetView: View {
                         Circle()
                             .fill(Color.green)
                             .frame(width: 6, height: 6)
+                            .shadow(color: Color.green.opacity(0.8), radius: 3, x: 0, y: 0)
                         
                         Text("Live Sync")
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.system(size: 9, weight: .semibold))
                             .foregroundColor(.white.opacity(0.6))
                     }
                 }
@@ -125,7 +129,7 @@ struct WidgetView: View {
             Spacer()
             
             HStack(spacing: 6) {
-                // Compact Toggle Button
+                // Compact Mode Toggle
                 Button(action: {
                     withAnimation {
                         isCompact.toggle()
@@ -133,37 +137,37 @@ struct WidgetView: View {
                 }) {
                     Image(systemName: isCompact ? "rectangle.expand.vertical" : "rectangle.compress.vertical")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(.white.opacity(0.85))
                         .padding(6)
-                        .background(Color.white.opacity(0.1))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help(isCompact ? "Expand Widget" : "Compact Widget")
+                .help(isCompact ? "Expand Widget" : "Compact View")
                 
-                // Window Level Mode Button (Desktop Widget / Always on Top / Normal Window)
+                // Mode Switcher (Desktop Widget / Always on Top / Normal)
                 Button(action: {
                     panelManager.cycleWindowMode()
                 }) {
                     Image(systemName: panelManager.windowMode.iconName)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(panelManager.windowMode == .desktop ? .cyan : (panelManager.windowMode == .floating ? .purple : .white.opacity(0.5)))
+                        .foregroundColor(panelManager.windowMode == .desktop ? .cyan : (panelManager.windowMode == .floating ? .purple : .white.opacity(0.6)))
                         .padding(6)
-                        .background(Color.white.opacity(0.1))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help("Mode: \(panelManager.windowMode.rawValue) (Click to switch)")
+                .help("Mode: \(panelManager.windowMode.rawValue)")
                 
-                // Close / Hide Button
+                // Close/Hide Button
                 Button(action: {
                     panelManager.hide()
                 }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.white.opacity(0.75))
                         .padding(6)
-                        .background(Color.white.opacity(0.1))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -172,39 +176,39 @@ struct WidgetView: View {
         }
         .padding(.horizontal, 14)
         .padding(.top, 14)
-        .padding(.bottom, 10)
+        .padding(.bottom, 8)
     }
     
-    // MARK: - Current Setup Summary Hero Card
+    // MARK: - Current Active Setup Hero Card
     private var currentSetupCard: some View {
         VStack(spacing: 10) {
-            // Output Device Hero Row
+            // Active Output Row
             let currentOutput = audioManager.outputDevices.first(where: { $0.id == audioManager.currentOutputDeviceID })
             HStack(spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.blue.opacity(0.25))
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.cyan.opacity(0.2))
                         .frame(width: 36, height: 36)
                     
                     Image(systemName: currentOutput?.iconName ?? "speaker.wave.2.fill")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundColor(.cyan)
                 }
                 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("OUTPUT (SPEAKER)")
                         .font(.system(size: 9, weight: .heavy))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.white.opacity(0.45))
                     
-                    Text(currentOutput?.name ?? "No Output Selected")
-                        .font(.system(size: 13, weight: .semibold))
+                    Text(currentOutput?.name ?? "No Output Device")
+                        .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                         .lineLimit(1)
                 }
                 
                 Spacer()
                 
-                // Mute Output Toggle Button
+                // Mute Output Toggle
                 Button(action: {
                     audioManager.toggleOutputMute()
                 }) {
@@ -213,7 +217,7 @@ struct WidgetView: View {
                         .foregroundColor(audioManager.isOutputMuted ? .red : .white)
                         .padding(8)
                         .background(audioManager.isOutputMuted ? Color.red.opacity(0.25) : Color.white.opacity(0.12))
-                        .cornerRadius(8)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -235,41 +239,41 @@ struct WidgetView: View {
                     .foregroundColor(.white.opacity(0.5))
                 
                 Text("\(Int(audioManager.outputVolume * 100))%")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 32, alignment: .trailing)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.9))
+                    .frame(width: 36, alignment: .trailing)
             }
             
             Divider()
                 .background(Color.white.opacity(0.1))
             
-            // Input Device Hero Row
+            // Active Input Row
             let currentInput = audioManager.inputDevices.first(where: { $0.id == audioManager.currentInputDeviceID })
             HStack(spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(Color.purple.opacity(0.25))
                         .frame(width: 36, height: 36)
                     
                     Image(systemName: currentInput?.iconName ?? "mic.fill")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundColor(.pink)
                 }
                 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("INPUT (MICROPHONE)")
                         .font(.system(size: 9, weight: .heavy))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.white.opacity(0.45))
                     
-                    Text(currentInput?.name ?? "No Input Selected")
-                        .font(.system(size: 13, weight: .semibold))
+                    Text(currentInput?.name ?? "No Input Device")
+                        .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                         .lineLimit(1)
                 }
                 
                 Spacer()
                 
-                // Mute Input Toggle Button
+                // Mute Input Toggle
                 Button(action: {
                     audioManager.toggleInputMute()
                 }) {
@@ -278,7 +282,7 @@ struct WidgetView: View {
                         .foregroundColor(audioManager.isInputMuted ? .red : .white)
                         .padding(8)
                         .background(audioManager.isInputMuted ? Color.red.opacity(0.25) : Color.white.opacity(0.12))
-                        .cornerRadius(8)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -300,16 +304,16 @@ struct WidgetView: View {
                     .foregroundColor(.white.opacity(0.5))
                 
                 Text("\(Int(audioManager.inputVolume * 100))%")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 32, alignment: .trailing)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.9))
+                    .frame(width: 36, alignment: .trailing)
             }
         }
         .padding(12)
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(14)
+        .background(Color.white.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
     }
@@ -322,15 +326,15 @@ struct WidgetView: View {
             }) {
                 HStack(spacing: 6) {
                     Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                     Text("Output Sources (\(audioManager.outputDevices.count))")
                         .font(.system(size: 11, weight: .bold))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 7)
-                .background(selectedTab == .output ? Color.blue.opacity(0.8) : Color.clear)
-                .foregroundColor(selectedTab == .output ? .white : .white.opacity(0.6))
-                .cornerRadius(10)
+                .background(selectedTab == .output ? Color.blue.opacity(0.85) : Color.clear)
+                .foregroundColor(selectedTab == .output ? .white : .white.opacity(0.55))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
             
@@ -339,21 +343,21 @@ struct WidgetView: View {
             }) {
                 HStack(spacing: 6) {
                     Image(systemName: "mic.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                     Text("Input Sources (\(audioManager.inputDevices.count))")
                         .font(.system(size: 11, weight: .bold))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 7)
-                .background(selectedTab == .input ? Color.purple.opacity(0.8) : Color.clear)
-                .foregroundColor(selectedTab == .input ? .white : .white.opacity(0.6))
-                .cornerRadius(10)
+                .background(selectedTab == .input ? Color.purple.opacity(0.85) : Color.clear)
+                .foregroundColor(selectedTab == .input ? .white : .white.opacity(0.55))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
         }
         .padding(3)
-        .background(Color.black.opacity(0.3))
-        .cornerRadius(12)
+        .background(Color.black.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
     
     // MARK: - Device List
@@ -366,16 +370,17 @@ struct WidgetView: View {
                 if devices.isEmpty {
                     VStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 24))
+                            .font(.system(size: 22))
                             .foregroundColor(.orange)
-                        Text("No devices found")
-                            .font(.system(size: 12, weight: .medium))
+                        Text("No audio devices detected")
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.white.opacity(0.6))
                     }
-                    .frame(maxWidth: .infinity, minHeight: 100)
+                    .frame(maxWidth: .infinity, minHeight: 90)
                 } else {
                     ForEach(devices) { device in
                         let isActive = device.id == activeID
+                        let isHovered = hoveredDeviceID == device.id
                         
                         Button(action: {
                             if selectedTab == .output {
@@ -387,22 +392,22 @@ struct WidgetView: View {
                             HStack(spacing: 12) {
                                 ZStack {
                                     Circle()
-                                        .fill(isActive ? (selectedTab == .output ? Color.blue : Color.purple) : Color.white.opacity(0.1))
+                                        .fill(isActive ? (selectedTab == .output ? Color.blue : Color.purple) : Color.white.opacity(0.12))
                                         .frame(width: 32, height: 32)
                                     
                                     Image(systemName: device.iconName)
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(isActive ? .white : .white.opacity(0.7))
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(isActive ? .white : .white.opacity(0.75))
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(device.name)
-                                        .font(.system(size: 12, weight: isActive ? .bold : .medium))
-                                        .foregroundColor(isActive ? .white : .white.opacity(0.9))
+                                        .font(.system(size: 12, weight: isActive ? .bold : .semibold))
+                                        .foregroundColor(isActive ? .white : .white.opacity(0.88))
                                         .lineLimit(1)
                                     
                                     Text(isActive ? "Active Default Device" : "Available Source")
-                                        .font(.system(size: 9))
+                                        .font(.system(size: 9, weight: .medium))
                                         .foregroundColor(isActive ? (selectedTab == .output ? .cyan : .pink) : .white.opacity(0.4))
                                 }
                                 
@@ -416,14 +421,26 @@ struct WidgetView: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(isActive ? Color.white.opacity(0.12) : Color.white.opacity(0.04))
-                            .cornerRadius(12)
+                            .background(
+                                isActive
+                                    ? Color.white.opacity(0.12)
+                                    : (isHovered ? Color.white.opacity(0.08) : Color.white.opacity(0.035))
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(isActive ? (selectedTab == .output ? Color.cyan.opacity(0.5) : Color.pink.opacity(0.5)) : Color.clear, lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(
+                                        isActive
+                                            ? (selectedTab == .output ? Color.cyan.opacity(0.55) : Color.pink.opacity(0.55))
+                                            : Color.clear,
+                                        lineWidth: 1
+                                    )
                             )
                         }
                         .buttonStyle(.plain)
+                        .onHover { hovering in
+                            hoveredDeviceID = hovering ? device.id : nil
+                        }
                     }
                 }
             }
@@ -453,8 +470,8 @@ struct WidgetView: View {
                     Image(systemName: audioManager.isOutputMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                         .foregroundColor(audioManager.isOutputMuted ? .red : .white)
                         .padding(6)
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(6)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -474,15 +491,15 @@ struct WidgetView: View {
                     Image(systemName: audioManager.isInputMuted ? "mic.slash.fill" : "mic.fill")
                         .foregroundColor(audioManager.isInputMuted ? .red : .white)
                         .padding(6)
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(6)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(10)
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(12)
+        .background(Color.white.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
     
     // MARK: - Footer
@@ -497,11 +514,11 @@ struct WidgetView: View {
                     Text("Sound Settings")
                         .font(.system(size: 10, weight: .semibold))
                 }
-                .foregroundColor(.white.opacity(0.7))
-                .padding(.horizontal, 8)
+                .foregroundColor(.white.opacity(0.75))
+                .padding(.horizontal, 9)
                 .padding(.vertical, 5)
-                .background(Color.white.opacity(0.08))
-                .cornerRadius(6)
+                .background(Color.white.opacity(0.09))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
             .buttonStyle(.plain)
             
@@ -517,10 +534,10 @@ struct WidgetView: View {
                         .font(.system(size: 10, weight: .semibold))
                 }
                 .foregroundColor(.cyan)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 9)
                 .padding(.vertical, 5)
-                .background(Color.cyan.opacity(0.15))
-                .cornerRadius(6)
+                .background(Color.cyan.opacity(0.16))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
             .buttonStyle(.plain)
         }

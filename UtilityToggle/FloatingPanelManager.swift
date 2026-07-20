@@ -54,8 +54,13 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         p.backgroundColor = .clear
         p.hasShadow = true
         p.isMovableByWindowBackground = true
-        p.ignoresMouseEvents = false
-        p.contentView = NSHostingView(rootView: contentView)
+        let hostingView = NSHostingView(rootView: contentView)
+        hostingView.wantsLayer = true
+        hostingView.layer?.cornerRadius = 24
+        hostingView.layer?.masksToBounds = true
+        
+        p.contentView = hostingView
+        p.invalidateShadow()
         
         self.panel = p
         
