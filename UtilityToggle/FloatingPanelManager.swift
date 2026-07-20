@@ -33,7 +33,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     
     func setupPanel(contentView: AnyView) {
         let p = CustomFloatingPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 490),
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 480),
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -49,7 +49,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.wantsLayer = true
-        hostingView.layer?.cornerRadius = 24
+        hostingView.layer?.cornerRadius = 16
         hostingView.layer?.masksToBounds = true
         
         p.contentView = hostingView
