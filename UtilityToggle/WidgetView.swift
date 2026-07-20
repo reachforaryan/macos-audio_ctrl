@@ -97,9 +97,9 @@ struct WidgetView: View {
                 deviceListView
                     .frame(maxHeight: .infinity)
             } else {
-                // Compact Mode View
+                // Compact Mode View with Volume Sliders
                 compactView
-                    .padding(12)
+                    .padding(10)
             }
             
             // Y2K Decorative Scale Line
@@ -110,7 +110,7 @@ struct WidgetView: View {
             // Y2K Footer Bar
             footerView
         }
-        .frame(width: 340, height: isCompact ? 200 : 500)
+        .frame(width: 340, height: isCompact ? 220 : 500)
         .background(
             ZStack {
                 VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
@@ -192,6 +192,7 @@ struct WidgetView: View {
                         .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
+                .focusEffectDisabled()
                 .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation {
@@ -213,6 +214,7 @@ struct WidgetView: View {
                         .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
+                .focusEffectDisabled()
                 .contentShape(Rectangle())
                 .onTapGesture {
                     panelManager.hide()
@@ -263,6 +265,7 @@ struct WidgetView: View {
                             .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
                     }
                     .buttonStyle(.plain)
+                    .focusEffectDisabled()
                 }
                 
                 // Y2K Hatched Volume Bar
@@ -326,6 +329,7 @@ struct WidgetView: View {
                             .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
                     }
                     .buttonStyle(.plain)
+                    .focusEffectDisabled()
                 }
                 
                 // Y2K Hatched Volume Bar
@@ -376,6 +380,7 @@ struct WidgetView: View {
                 .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
+            .focusEffectDisabled()
             
             Button(action: {
                 selectedTab = .input
@@ -394,6 +399,7 @@ struct WidgetView: View {
                 .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
+            .focusEffectDisabled()
         }
         .padding(3)
         .background(Color.black.opacity(0.4))
@@ -472,6 +478,7 @@ struct WidgetView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .focusEffectDisabled()
                         .onHover { hovering in
                             hoveredDeviceID = hovering ? device.id : nil
                         }
@@ -496,61 +503,106 @@ struct WidgetView: View {
         .frame(height: 8)
     }
     
-    // MARK: - Compact Mode View
+    // MARK: - Compact Mode View (With Volume Control)
     private var compactView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
+            // Output Section
             let currentOutput = audioManager.outputDevices.first(where: { $0.id == audioManager.currentOutputDeviceID })
-            let currentInput = audioManager.inputDevices.first(where: { $0.id == audioManager.currentInputDeviceID })
-            
-            HStack {
-                HStack(spacing: 8) {
-                    Y2KStar(size: 10)
-                    Text(currentOutput?.name.uppercased() ?? "NO_OUTPUT")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+            VStack(spacing: 5) {
+                HStack {
+                    HStack(spacing: 6) {
+                        Y2KStar(size: 10)
+                        Text(currentOutput?.name.uppercased() ?? "NO_OUTPUT")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    Button(action: {
+                        audioManager.toggleOutputMute()
+                    }) {
+                        Text(audioManager.isOutputMuted ? "[ MUTED ]" : "[ MUTE ]")
+                            .font(.system(size: 8, weight: .black, design: .monospaced))
+                            .foregroundColor(audioManager.isOutputMuted ? .black : .white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(audioManager.isOutputMuted ? Color.white : Color.white.opacity(0.12))
+                            .clipShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .focusEffectDisabled()
+                }
+                
+                HStack(spacing: 6) {
+                    Y2KHatchedSlider(
+                        value: Binding(
+                            get: { audioManager.outputVolume },
+                            set: { audioManager.setOutputVolume($0) }
+                        ),
+                        onEditingChanged: { newVol in
+                            audioManager.setOutputVolume(newVol)
+                        }
+                    )
+                    
+                    Text("\(Int(audioManager.outputVolume * 100))%")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .foregroundColor(.white)
-                        .lineLimit(1)
+                        .frame(width: 28, alignment: .trailing)
                 }
-                Spacer()
-                Button(action: {
-                    audioManager.toggleOutputMute()
-                }) {
-                    Text(audioManager.isOutputMuted ? "[ MUTED ]" : "[ MUTE ]")
-                        .font(.system(size: 8, weight: .black, design: .monospaced))
-                        .foregroundColor(audioManager.isOutputMuted ? .black : .white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(audioManager.isOutputMuted ? Color.white : Color.white.opacity(0.1))
-                        .clipShape(Rectangle())
-                }
-                .buttonStyle(.plain)
             }
             
-            HStack {
-                HStack(spacing: 8) {
-                    Image(systemName: currentInput?.iconName ?? "mic.fill")
-                        .foregroundColor(.white)
-                    Text(currentInput?.name.uppercased() ?? "NO_INPUT")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
+            Divider()
+                .background(Color.white.opacity(0.15))
+            
+            // Input Section
+            let currentInput = audioManager.inputDevices.first(where: { $0.id == audioManager.currentInputDeviceID })
+            VStack(spacing: 5) {
+                HStack {
+                    HStack(spacing: 6) {
+                        Image(systemName: currentInput?.iconName ?? "mic.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white)
+                        Text(currentInput?.name.uppercased() ?? "NO_INPUT")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    Button(action: {
+                        audioManager.toggleInputMute()
+                    }) {
+                        Text(audioManager.isInputMuted ? "[ MUTED ]" : "[ MUTE ]")
+                            .font(.system(size: 8, weight: .black, design: .monospaced))
+                            .foregroundColor(audioManager.isInputMuted ? .black : .white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(audioManager.isInputMuted ? Color.white : Color.white.opacity(0.12))
+                            .clipShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .focusEffectDisabled()
                 }
-                Spacer()
-                Button(action: {
-                    audioManager.toggleInputMute()
-                }) {
-                    Text(audioManager.isInputMuted ? "[ MUTED ]" : "[ MUTE ]")
-                        .font(.system(size: 8, weight: .black, design: .monospaced))
-                        .foregroundColor(audioManager.isInputMuted ? .black : .white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(audioManager.isInputMuted ? Color.white : Color.white.opacity(0.1))
-                        .clipShape(Rectangle())
+                
+                HStack(spacing: 6) {
+                    Y2KHatchedSlider(
+                        value: Binding(
+                            get: { audioManager.inputVolume },
+                            set: { audioManager.setInputVolume($0) }
+                        ),
+                        onEditingChanged: { newVol in
+                            audioManager.setInputVolume(newVol)
+                        }
+                    )
+                    
+                    Text("\(Int(audioManager.inputVolume * 100))%")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white)
+                        .frame(width: 28, alignment: .trailing)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
     
     // MARK: - Footer
@@ -573,6 +625,7 @@ struct WidgetView: View {
                 .overlay(Rectangle().stroke(Color.white.opacity(0.25), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
+            .focusEffectDisabled()
             
             Spacer()
             
@@ -593,6 +646,7 @@ struct WidgetView: View {
                 .overlay(Rectangle().stroke(Color.white.opacity(0.4), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
+            .focusEffectDisabled()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
