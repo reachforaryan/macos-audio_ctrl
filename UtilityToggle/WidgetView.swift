@@ -81,19 +81,20 @@ struct Y2KMicLevelMeter: View {
 
 // MARK: - Y2K Animated Equalizer Spectrum (Live 60 FPS Output Sound Visualizer)
 struct Y2KSpectrumVisualizer: View {
+    var level: Float
     var isOutputMuted: Bool
-    var outputVolume: Float
     
     var body: some View {
         TimelineView(.animation) { timeline in
             let time = timeline.date.timeIntervalSince1970
-            let isSoundPlaying = !isOutputMuted && outputVolume > 0.01
+            let isSoundPlaying = !isOutputMuted && level > 0.01
             
             HStack(spacing: 2.5) {
                 ForEach(0..<8, id: \.self) { i in
                     let seed = Double(i) * 1.4
+                    let amp = Double(level)
                     let h = isSoundPlaying
-                        ? max(3.0, 3.0 + (sin(time * 10.0 + seed) * 5.0 + cos(time * 15.0 + seed * 0.4) * 3.0) * Double(outputVolume))
+                        ? max(3.0, 3.0 + (sin(time * 12.0 + seed) * 6.0 + cos(time * 18.0 + seed * 0.5) * 4.0) * amp)
                         : 3.0
                     Rectangle()
                         .fill(Color.white)
@@ -223,7 +224,7 @@ struct WidgetView: View {
             Spacer()
             
             // Equalizer Spectrum Visualizer
-            Y2KSpectrumVisualizer(isOutputMuted: audioManager.isOutputMuted, outputVolume: audioManager.outputVolume)
+            Y2KSpectrumVisualizer(level: audioManager.liveOutputLevel, isOutputMuted: audioManager.isOutputMuted)
                 .padding(.trailing, 6)
             
             HStack(spacing: 6) {

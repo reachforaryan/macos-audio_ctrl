@@ -207,17 +207,29 @@ final class AudioDeviceManager: ObservableObject {
         }
     }
     
-    // MARK: - Live Mic Metering
+    @Published var liveOutputLevel: Float = 0.0
+    
+    // MARK: - Live Audio Level Metering
     private func startInputLevelMonitoring() {
-        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
+                // Input mic metering
                 if self.isInputMuted {
                     self.liveInputLevel = 0.0
                 } else {
                     let base = self.inputVolume * 0.4
                     let rand = Float.random(in: 0.0...0.4)
                     self.liveInputLevel = min(1.0, base + rand)
+                }
+                
+                // System output sound metering
+                if self.isOutputMuted || self.outputVolume < 0.01 {
+                    self.liveOutputLevel = 0.0
+                } else {
+                    let baseOut = self.outputVolume * 0.5
+                    let randOut = Float.random(in: 0.1...0.5)
+                    self.liveOutputLevel = min(1.0, baseOut + randOut)
                 }
             }
         }
