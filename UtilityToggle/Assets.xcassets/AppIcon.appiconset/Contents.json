@@ -1,6 +1,7 @@
 {
   "images" : [
     {
+      "filename" : "logo16x.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "16x16"

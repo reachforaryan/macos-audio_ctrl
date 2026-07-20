@@ -211,7 +211,7 @@ final class AudioDeviceManager: ObservableObject {
     
     // MARK: - Live Audio Level Metering
     private func startInputLevelMonitoring() {
-        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        levelTimer = Timer.scheduledTimer(withTimeInterval: AppConfig.Audio.meteringIntervalSeconds, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 // Input mic metering

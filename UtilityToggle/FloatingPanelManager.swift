@@ -31,7 +31,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     @Published var menuIconIndex: Int = 0
     @Published var currentHotKey: CustomHotKey = CustomHotKey.defaultHotkey
     
-    private let hotkeyStorageKey = "UserCustomHotKeyStorageKey"
+    private let hotkeyStorageKey = AppConfig.Strings.userHotKeyStorageKey
     let iconNames = ["waveform", "star.fill", "disc.fill"]
     let iconLabels = ["WAVEFORM 🌊", "STAR ✦", "DISC 💿"]
 
@@ -42,7 +42,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     
     func setupPanel(contentView: AnyView) {
         let p = CustomFloatingPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: AppConfig.Dimensions.panelWidth, height: AppConfig.Dimensions.panelHeight),
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -59,7 +59,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.wantsLayer = true
-        hostingView.layer?.cornerRadius = 20
+        hostingView.layer?.cornerRadius = AppConfig.Dimensions.panelCornerRadius
         hostingView.layer?.masksToBounds = true
         
         p.contentView = hostingView

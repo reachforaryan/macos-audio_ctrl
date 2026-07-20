@@ -35,14 +35,14 @@ struct Y2KHatchedSlider: View {
     
     var body: some View {
         GeometryReader { geo in
-            let totalBars = 22
+            let totalBars = AppConfig.Dimensions.hatchedSliderBarCount
             let width = geo.size.width
             let activeBars = Int(round(Double(value) * Double(totalBars)))
             
             HStack(spacing: 3) {
-                ForEach(0..<22) { index in
+                ForEach(0..<totalBars, id: \.self) { index in
                     Rectangle()
-                        .fill(index < activeBars ? Color.white : Color.white.opacity(0.15))
+                        .fill(index < activeBars ? AppConfig.Colors.accentWhite : AppConfig.Colors.cardBorder)
                         .transformEffect(CGAffineTransform(a: 1, b: 0, c: -0.35, d: 1, tx: 0, ty: 0))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -58,7 +58,7 @@ struct Y2KHatchedSlider: View {
                     }
             )
         }
-        .frame(height: 14)
+        .frame(height: AppConfig.Dimensions.hatchedSliderHeight)
     }
 }
 
@@ -68,12 +68,12 @@ struct Y2KMicLevelMeter: View {
     
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(0..<14) { index in
-                let threshold = Float(index) / 14.0
+            ForEach(0..<AppConfig.Dimensions.micMeterSegmentCount, id: \.self) { index in
+                let threshold = Float(index) / Float(AppConfig.Dimensions.micMeterSegmentCount)
                 let isActive = level > threshold
                 Rectangle()
-                    .fill(isActive ? (index > 10 ? Color.white : Color.white.opacity(0.85)) : Color.white.opacity(0.12))
-                    .frame(width: 4, height: 8)
+                    .fill(isActive ? (index > 10 ? AppConfig.Colors.accentWhite : AppConfig.Colors.accentWhite.opacity(0.85)) : AppConfig.Colors.buttonBackground)
+                    .frame(width: AppConfig.Dimensions.micMeterSegmentWidth, height: AppConfig.Dimensions.micMeterSegmentHeight)
             }
         }
     }
@@ -90,15 +90,15 @@ struct Y2KSpectrumVisualizer: View {
             let isSoundPlaying = !isOutputMuted && level > 0.01
             
             HStack(spacing: 2.5) {
-                ForEach(0..<8, id: \.self) { i in
+                ForEach(0..<AppConfig.Dimensions.spectrumBarCount, id: \.self) { i in
                     let seed = Double(i) * 1.4
                     let amp = Double(level)
                     let h = isSoundPlaying
-                        ? max(3.0, 3.0 + (sin(time * 12.0 + seed) * 6.0 + cos(time * 18.0 + seed * 0.5) * 4.0) * amp)
-                        : 3.0
+                        ? max(AppConfig.Audio.minVisualizerHeight, AppConfig.Audio.minVisualizerHeight + (sin(time * 12.0 + seed) * 6.0 + cos(time * 18.0 + seed * 0.5) * 4.0) * amp)
+                        : AppConfig.Audio.minVisualizerHeight
                     Rectangle()
-                        .fill(Color.white)
-                        .frame(width: 2.5, height: CGFloat(h))
+                        .fill(AppConfig.Colors.accentWhite)
+                        .frame(width: AppConfig.Dimensions.spectrumBarWidth, height: CGFloat(h))
                 }
             }
             .frame(height: 16, alignment: .bottom)

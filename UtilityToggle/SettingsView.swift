@@ -102,17 +102,17 @@ struct SettingsView: View {
             
             footerActionBar
         }
-        .frame(width: 450, height: 550)
+        .frame(width: AppConfig.Dimensions.settingsWidth, height: AppConfig.Dimensions.settingsHeight)
         .background(
             ZStack {
                 VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
-                Color.black.opacity(0.94)
+                AppConfig.Colors.hudBackground
             }
         )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppConfig.Dimensions.settingsCornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.35), lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppConfig.Dimensions.settingsCornerRadius, style: .continuous)
+                .stroke(AppConfig.Colors.buttonBorder, lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.7), radius: 24, x: 0, y: 10)
     }
@@ -122,17 +122,17 @@ struct SettingsView: View {
         HStack {
             HStack(spacing: 8) {
                 Y2KStar(size: 14)
-                Text("UTILITY_TOGGLE // CONFIGURATION")
-                    .font(.system(size: 12, weight: .black, design: .monospaced))
-                    .foregroundColor(.white)
+                Text(AppConfig.Strings.configHeaderTitle)
+                    .font(AppConfig.Fonts.header)
+                    .foregroundColor(AppConfig.Colors.textPrimary)
             }
             
             Spacer()
             
             HStack(spacing: 8) {
-                Text("[ v2.0.0 ]")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.5))
+                Text(AppConfig.Strings.versionText)
+                    .font(AppConfig.Fonts.badgeBold)
+                    .foregroundColor(AppConfig.Colors.textSecondary)
                 
                 // Solid Y2K Monochromatic Close Button
                 Button(action: {
@@ -141,13 +141,13 @@ struct SettingsView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "xmark")
                             .font(.system(size: 9, weight: .black))
-                        Text("CLOSE")
-                            .font(.system(size: 9, weight: .black, design: .monospaced))
+                        Text(AppConfig.Strings.closeBtn)
+                            .font(AppConfig.Fonts.badge)
                     }
                     .foregroundColor(.black)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.white)
+                    .background(AppConfig.Colors.accentWhite)
                     .clipShape(Rectangle())
                 }
                 .buttonStyle(.plain)
