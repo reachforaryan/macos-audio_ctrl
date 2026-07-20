@@ -45,8 +45,8 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         p.isMovableByWindowBackground = false
         p.isMovable = false
         p.ignoresMouseEvents = false
-        p.level = .normal
-        p.collectionBehavior = [.canJoinAllSpaces]
+        p.level = .popUpMenu
+        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.wantsLayer = true
@@ -103,10 +103,13 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         
         let midX = buttonFrame.midX
         var originX = midX - (panelSize.width / 2.0)
-        var originY = buttonFrame.minY - panelSize.height - 6.0
+        
+        // Align directly below top of screen / menu bar
+        let topY = buttonFrame.minY > 0 ? buttonFrame.minY : (NSScreen.main?.frame.maxY ?? 1000) - 24
+        var originY = topY - panelSize.height - 4.0
         
         if let screen = buttonWindow.screen ?? NSScreen.main {
-            let screenFrame = screen.visibleFrame
+            let screenFrame = screen.frame
             let minX = screenFrame.minX + 8.0
             let maxX = screenFrame.maxX - panelSize.width - 8.0
             originX = min(max(originX, minX), maxX)
@@ -120,7 +123,24 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         stopClickOutsideMonitor()
         globalEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self = self, self.isVisible else { return }
+                guard let self = self, self.isVisible, let panel = self.panel else { return }
+                let mouseLocation = NSEvent.mouseLocation
+                
+                // Do NOT hide if click is inside panel frame
+                if NSPointInRect(mouseLocation, panel.frame) {
+                    return
+                }
+                
+                // Do NOT hide if click is on status item button
+                if let button = self.statusItem?.button,
+                   let buttonWindow = button.window {
+                    let boundsInWindow = button.convert(button.bounds, to: nil)
+                    let buttonFrame = buttonWindow.convertToScreen(boundsInWindow)
+                    if NSPointInRect(mouseLocation, buttonFrame) {
+                        return
+                    }
+                }
+                
                 self.hide()
             }
         }
@@ -134,7 +154,12 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     }
     
     @objc private func windowDidResignKey(_ notification: Notification) {
-        hide()
+        // When auto-hiding menu bar retracts, preserve window if mouse is over panel
+        let mouseLocation = NSEvent.mouseLocation
+        if let panel = panel, NSPointInRect(mouseLocation, panel.frame) {
+            panel.makeKeyAndOrderFront(nil)
+            return
+        }
     }
     
     private func setupMenuExtra() {
