@@ -23,6 +23,16 @@ public enum WindowMode: String, CaseIterable, Identifiable {
     }
 }
 
+class CustomFloatingPanel: NSPanel {
+    override var canBecomeKey: Bool {
+        return true
+    }
+    
+    override var canBecomeMain: Bool {
+        return true
+    }
+}
+
 @MainActor
 final class FloatingPanelManager: NSObject, ObservableObject {
     static let shared = FloatingPanelManager()
@@ -43,7 +53,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     }
     
     func setupPanel(contentView: AnyView) {
-        let p = NSPanel(
+        let p = CustomFloatingPanel(
             contentRect: NSRect(x: 0, y: 0, width: 340, height: 500),
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
@@ -54,6 +64,8 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         p.backgroundColor = .clear
         p.hasShadow = true
         p.isMovableByWindowBackground = true
+        p.ignoresMouseEvents = false
+        
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.wantsLayer = true
         hostingView.layer?.cornerRadius = 24
@@ -109,14 +121,10 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         let buttonFrame = buttonWindow.convertToScreen(boundsInWindow)
         let panelSize = panel.frame.size
         
-        // Horizontal centering directly under status item icon
         let midX = buttonFrame.midX
         var originX = midX - (panelSize.width / 2.0)
-        
-        // Vertical placement directly below status item icon
         var originY = buttonFrame.minY - panelSize.height - 6.0
         
-        // Clamp to screen boundaries so widget never goes off-screen
         if let screen = buttonWindow.screen ?? NSScreen.main {
             let screenFrame = screen.visibleFrame
             let minX = screenFrame.minX + 8.0
@@ -144,6 +152,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
             panel.collectionBehavior = [.canJoinAllSpaces]
             panel.ignoresMouseEvents = false
         }
+        panel.orderFront(nil)
     }
     
     private func setupMenuExtra() {

@@ -143,6 +143,12 @@ struct WidgetView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .contentShape(Circle())
+                .onTapGesture {
+                    withAnimation {
+                        isCompact.toggle()
+                    }
+                }
                 .help(isCompact ? "Expand Widget" : "Compact View")
                 
                 // Mode Switcher (Desktop Widget / Always on Top / Normal)
@@ -157,6 +163,10 @@ struct WidgetView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .contentShape(Circle())
+                .onTapGesture {
+                    panelManager.cycleWindowMode()
+                }
                 .help("Mode: \(panelManager.windowMode.rawValue)")
                 
                 // Close/Hide Button
@@ -171,6 +181,10 @@ struct WidgetView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .contentShape(Circle())
+                .onTapGesture {
+                    panelManager.hide()
+                }
                 .help("Hide Widget")
             }
         }
