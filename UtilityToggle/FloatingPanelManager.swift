@@ -24,8 +24,12 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     var panel: NSPanel!
     private var statusItem: NSStatusItem?
     private var globalEventMonitor: Any?
+    private var globalHotkeyMonitor: Any?
     
     @Published var isVisible: Bool = true
+    @Published var menuIconIndex: Int = 0
+    
+    private let iconNames = ["waveform.circle.fill", "sparkles", "disc.fill"]
 
     override init() {
         super.init()
@@ -66,6 +70,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         self.panel = p
         
         setupMenuExtra()
+        setupGlobalHotkey()
         positionBelowStatusItem()
         show()
     }
@@ -92,6 +97,13 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         isVisible = false
     }
     
+    func cycleMenuBarIcon() {
+        menuIconIndex = (menuIconIndex + 1) % iconNames.count
+        if let button = statusItem?.button {
+            button.image = NSImage(systemSymbolName: iconNames[menuIconIndex], accessibilityDescription: "Audio Switcher")
+        }
+    }
+    
     func positionBelowStatusItem() {
         guard let panel = panel,
               let button = statusItem?.button,
@@ -104,7 +116,6 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         let midX = buttonFrame.midX
         var originX = midX - (panelSize.width / 2.0)
         
-        // Align directly below top of screen / menu bar
         let topY = buttonFrame.minY > 0 ? buttonFrame.minY : (NSScreen.main?.frame.maxY ?? 1000) - 24
         var originY = topY - panelSize.height - 4.0
         
@@ -119,6 +130,17 @@ final class FloatingPanelManager: NSObject, ObservableObject {
         panel.setFrameOrigin(NSPoint(x: originX, y: originY))
     }
     
+    private func setupGlobalHotkey() {
+        // Option + Space Global Hotkey to Toggle Widget
+        globalHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.modifierFlags.contains(.option) && event.keyCode == 49 { // 49 is Spacebar
+                Task { @MainActor [weak self] in
+                    self?.toggleVisibility()
+                }
+            }
+        }
+    }
+    
     private func startClickOutsideMonitor() {
         stopClickOutsideMonitor()
         globalEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
@@ -126,12 +148,10 @@ final class FloatingPanelManager: NSObject, ObservableObject {
                 guard let self = self, self.isVisible, let panel = self.panel else { return }
                 let mouseLocation = NSEvent.mouseLocation
                 
-                // Do NOT hide if click is inside panel frame
                 if NSPointInRect(mouseLocation, panel.frame) {
                     return
                 }
                 
-                // Do NOT hide if click is on status item button
                 if let button = self.statusItem?.button,
                    let buttonWindow = button.window {
                     let boundsInWindow = button.convert(button.bounds, to: nil)
@@ -154,7 +174,6 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     }
     
     @objc private func windowDidResignKey(_ notification: Notification) {
-        // When auto-hiding menu bar retracts, preserve window if mouse is over panel
         let mouseLocation = NSEvent.mouseLocation
         if let panel = panel, NSPointInRect(mouseLocation, panel.frame) {
             panel.makeKeyAndOrderFront(nil)
@@ -165,7 +184,7 @@ final class FloatingPanelManager: NSObject, ObservableObject {
     private func setupMenuExtra() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "waveform.circle.fill", accessibilityDescription: "Audio Switcher")
+            button.image = NSImage(systemSymbolName: iconNames[menuIconIndex], accessibilityDescription: "Audio Switcher")
             button.action = #selector(menuBarButtonClicked)
             button.target = self
         }

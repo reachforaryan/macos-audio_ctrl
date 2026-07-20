@@ -15,7 +15,7 @@ struct Y2KStar: View {
         Path { path in
             let center = CGPoint(x: size / 2, y: size / 2)
             let radius = size / 2
-            let c: CGFloat = 0.22 // Concavity control point ratio
+            let c: CGFloat = 0.22
             
             path.move(to: CGPoint(x: center.x, y: 0))
             path.addQuadCurve(to: CGPoint(x: size, y: center.y), control: CGPoint(x: center.x + radius * c, y: center.y - radius * c))
@@ -62,6 +62,44 @@ struct Y2KHatchedSlider: View {
     }
 }
 
+// MARK: - Y2K Live Mic Peak Meter
+struct Y2KMicLevelMeter: View {
+    var level: Float
+    
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(0..<14) { index in
+                let threshold = Float(index) / 14.0
+                let isActive = level > threshold
+                Rectangle()
+                    .fill(isActive ? (index > 10 ? Color.white : Color.white.opacity(0.85)) : Color.white.opacity(0.12))
+                    .frame(width: 4, height: 8)
+            }
+        }
+    }
+}
+
+// MARK: - Y2K Animated Equalizer Spectrum
+struct Y2KSpectrumVisualizer: View {
+    @State private var phase: Double = 0.0
+    
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<8) { i in
+                let height = 4.0 + sin(phase + Double(i) * 0.8) * 6.0
+                Rectangle()
+                    .fill(Color.white.opacity(0.85))
+                    .frame(width: 2, height: CGFloat(height))
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true)) {
+                phase = .pi * 2
+            }
+        }
+    }
+}
+
 struct WidgetView: View {
     @StateObject private var audioManager = AudioDeviceManager()
     @StateObject private var panelManager = FloatingPanelManager.shared
@@ -82,10 +120,15 @@ struct WidgetView: View {
             headerView
             
             if !isCompact {
-                // Active Setup Hero Section (Y2K Wireframe Cards)
-                activeSetupSection
+                // Y2K Preset Profiles Bar
+                presetProfilesBar
                     .padding(.horizontal, 14)
                     .padding(.top, 4)
+                    .padding(.bottom, 6)
+                
+                // Active Setup Hero Section
+                activeSetupSection
+                    .padding(.horizontal, 14)
                     .padding(.bottom, 8)
                 
                 // Y2K Monochromatic Source Switcher
@@ -97,7 +140,7 @@ struct WidgetView: View {
                 deviceListView
                     .frame(maxHeight: .infinity)
             } else {
-                // Compact Mode View with Volume Sliders
+                // Compact Mode View
                 compactView
                     .padding(10)
             }
@@ -110,12 +153,10 @@ struct WidgetView: View {
             // Y2K Footer Bar
             footerView
         }
-        .frame(width: 340, height: isCompact ? 220 : 500)
+        .frame(width: 340, height: isCompact ? 220 : 530)
         .background(
             ZStack {
                 VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
-                
-                // Pure Monochromatic Translucent Dark Backdrop
                 Color.black.opacity(0.88)
             }
         )
@@ -159,7 +200,7 @@ struct WidgetView: View {
                             .font(.system(size: 11, weight: .black, design: .monospaced))
                             .foregroundColor(.white)
                         
-                        Text("[LIVE]")
+                        Text("[ ⌥SPACE ]")
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
                             .foregroundColor(.black)
                             .padding(.horizontal, 4)
@@ -175,6 +216,10 @@ struct WidgetView: View {
             }
             
             Spacer()
+            
+            // Equalizer Spectrum Visualizer
+            Y2KSpectrumVisualizer()
+                .padding(.trailing, 6)
             
             HStack(spacing: 6) {
                 // Compact Toggle Button
@@ -225,6 +270,33 @@ struct WidgetView: View {
         .padding(.horizontal, 14)
         .padding(.top, 14)
         .padding(.bottom, 6)
+    }
+    
+    // MARK: - Y2K Preset Profiles Bar
+    private var presetProfilesBar: some View {
+        HStack(spacing: 6) {
+            ForEach(AudioPreset.allCases) { preset in
+                let isActive = audioManager.activePreset == preset
+                Button(action: {
+                    audioManager.applyPreset(preset)
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: preset.icon)
+                            .font(.system(size: 9))
+                        Text(preset.rawValue.replacingOccurrences(of: "_MODE", with: ""))
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                    .background(isActive ? Color.white : Color.white.opacity(0.06))
+                    .foregroundColor(isActive ? .black : .white.opacity(0.7))
+                    .clipShape(Rectangle())
+                    .overlay(Rectangle().stroke(Color.white.opacity(0.3), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .focusEffectDisabled()
+            }
+        }
     }
     
     // MARK: - Y2K Active Setup Section
@@ -294,7 +366,7 @@ struct WidgetView: View {
                     .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
             )
             
-            // Input Wireframe Card
+            // Input Wireframe Card with Live dB Mic Level
             let currentInput = audioManager.inputDevices.first(where: { $0.id == audioManager.currentInputDeviceID })
             VStack(spacing: 6) {
                 HStack(spacing: 8) {
@@ -303,9 +375,14 @@ struct WidgetView: View {
                         .foregroundColor(.white)
                     
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("// INPUT_DEVICE")
-                            .font(.system(size: 8, weight: .heavy, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.5))
+                        HStack(spacing: 6) {
+                            Text("// INPUT_DEVICE")
+                                .font(.system(size: 8, weight: .heavy, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.5))
+                            
+                            // Live Mic Level Meter
+                            Y2KMicLevelMeter(level: audioManager.liveInputLevel)
+                        }
                         
                         Text(currentInput?.name.uppercased() ?? "NO_DEVICE")
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
@@ -503,7 +580,7 @@ struct WidgetView: View {
         .frame(height: 8)
     }
     
-    // MARK: - Compact Mode View (With Volume Control)
+    // MARK: - Compact Mode View
     private var compactView: some View {
         VStack(spacing: 10) {
             // Output Section
@@ -608,17 +685,17 @@ struct WidgetView: View {
     // MARK: - Footer
     private var footerView: some View {
         HStack {
+            // Cycle Menu Bar Icon Button
             Button(action: {
-                openSystemAudioPreferences()
+                panelManager.cycleMenuBarIcon()
             }) {
-                HStack(spacing: 5) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 9))
-                    Text("[ SOUND_PREFS ]")
+                HStack(spacing: 4) {
+                    Y2KStar(size: 9)
+                    Text("[ ICON ]")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                 }
-                .foregroundColor(.white.opacity(0.75))
-                .padding(.horizontal, 8)
+                .foregroundColor(.white.opacity(0.8))
+                .padding(.horizontal, 7)
                 .padding(.vertical, 4)
                 .background(Color.white.opacity(0.08))
                 .clipShape(Rectangle())
@@ -626,9 +703,32 @@ struct WidgetView: View {
             }
             .buttonStyle(.plain)
             .focusEffectDisabled()
+            .help("Cycle Menu Bar Icon")
+            
+            // Launch at Login Toggle Button
+            Button(action: {
+                audioManager.toggleLaunchAtLogin()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "power")
+                        .font(.system(size: 8))
+                    Text(audioManager.isLaunchAtLoginEnabled ? "[ AUTO: ON ]" : "[ AUTO: OFF ]")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                }
+                .foregroundColor(audioManager.isLaunchAtLoginEnabled ? .black : .white.opacity(0.8))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(audioManager.isLaunchAtLoginEnabled ? Color.white : Color.white.opacity(0.08))
+                .clipShape(Rectangle())
+                .overlay(Rectangle().stroke(Color.white.opacity(0.25), lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            .focusEffectDisabled()
+            .help("Toggle Launch at Login")
             
             Spacer()
             
+            // Refresh Button
             Button(action: {
                 audioManager.refreshDevices()
             }) {
@@ -639,7 +739,7 @@ struct WidgetView: View {
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                 }
                 .foregroundColor(.white)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 7)
                 .padding(.vertical, 4)
                 .background(Color.white.opacity(0.15))
                 .clipShape(Rectangle())
@@ -650,12 +750,6 @@ struct WidgetView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-    }
-    
-    private func openSystemAudioPreferences() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
-            NSWorkspace.shared.open(url)
-        }
     }
 }
 
