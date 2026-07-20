@@ -7,9 +7,9 @@ import SwiftUI
 import AppKit
 
 @main
-struct AudioWidgetApp: App {
+struct UtilityToggleApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    
+
     var body: some Scene {
         Settings {
             EmptyView()
@@ -20,6 +20,13 @@ struct AudioWidgetApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        FloatingPanelManager.shared.setupPanel(contentView: AnyView(WidgetView()))
+        
+        let contentView = AnyView(WidgetView())
+        FloatingPanelManager.shared.setupPanel(contentView: contentView)
+        
+        // Execute automated unit test suite
+        Task { @MainActor in
+            _ = AudioDeviceTester.runAllTests()
+        }
     }
 }
