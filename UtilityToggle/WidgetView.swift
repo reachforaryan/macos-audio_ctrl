@@ -870,6 +870,11 @@ struct AppVolumeRowView: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 14, height: 14)
                 
+                // Live audio indicator
+                Circle()
+                    .fill(process.isPlayingAudio ? Color.green : Color.white.opacity(0.2))
+                    .frame(width: 5, height: 5)
+                
                 Text(process.displayName)
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
@@ -915,7 +920,7 @@ struct AppVolumeRowView: View {
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                .stroke(process.isPlayingAudio ? Color.green.opacity(0.3) : Color.white.opacity(0.15), lineWidth: 0.5)
         )
     }
 }

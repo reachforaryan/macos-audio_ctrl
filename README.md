@@ -11,7 +11,7 @@
 
 Yes! General users **do not need Xcode** to run AUDIO CTRL. It runs as a native standalone macOS menu bar app.
 
-- **[DOWNLOAD AUDIO_CTRL V2.0 (.ZIP)](https://github.com/reachforaryan/UtilityToggle/releases/latest/download/UtilityToggle.zip)**
+- **[DOWNLOAD AUDIO_CTRL V2.0 (.ZIP)](https://github.com/reachforaryan/macos-audio_ctrl/tree/main/releases/latest/download)**
 
 ### Quick Install for End Users:
 1. Download `UtilityToggle.zip` from the link above.

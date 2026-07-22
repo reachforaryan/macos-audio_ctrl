@@ -2,23 +2,198 @@
 //  AppAudioProcessManager.swift
 //  UtilityToggle
 //
-//  Per-App & Per-Window Live Audio Process Discovery & Volume Tap Engine.
+//  Per-App Audio Process Discovery & Volume Control via CoreAudio Process Taps.
+//  Uses CATapDescription + AudioHardwareCreateProcessTap for real per-app volume.
 //
 
 import SwiftUI
 import AppKit
 import Combine
 import CoreAudio
-import ApplicationServices
+import AudioToolbox
 
+// MARK: - Per-Process Tap Session
+// Holds the CoreAudio tap + aggregate device for one process's audio control.
+// Runs entirely off-main-actor; only the gain/mute values need synchronization.
+final class ProcessTapSession {
+    let pid: pid_t
+    let audioObjectID: AudioObjectID
+    private(set) var tapID: AudioObjectID = AudioObjectID(kAudioObjectUnknown)
+    private(set) var aggregateDeviceID: AudioObjectID = AudioObjectID(kAudioObjectUnknown)
+    private(set) var ioProcID: AudioDeviceIOProcID?
+    private(set) var isActive: Bool = false
+    
+    // Thread-safe gain (read from IO proc on real-time thread)
+    var gain: Float32 = 1.0
+    
+    init(pid: pid_t, audioObjectID: AudioObjectID) {
+        self.pid = pid
+        self.audioObjectID = audioObjectID
+    }
+    
+    // Start the tap pipeline: CATapDescription -> Tap -> Aggregate -> IOProc
+    func start() -> Bool {
+        guard !isActive else { return true }
+        
+        // 1. Create the process tap
+        let tapDesc = CATapDescription(stereoMixdownOfProcesses: [audioObjectID])
+        tapDesc.name = "AudioCtrl_\(pid)"
+        
+        var newTapID: AudioObjectID = AudioObjectID(kAudioObjectUnknown)
+        guard AudioHardwareCreateProcessTap(tapDesc, &newTapID) == noErr else {
+            return false
+        }
+        self.tapID = newTapID
+        
+        // 2. Get tap UID
+        guard let tapUID = getTapUID() else {
+            AudioHardwareDestroyProcessTap(tapID)
+            return false
+        }
+        
+        // 3. Get default output device UID
+        guard let outputUID = Self.getDefaultOutputUID() else {
+            AudioHardwareDestroyProcessTap(tapID)
+            return false
+        }
+        
+        // 4. Create aggregate device with the tap
+        let aggDesc: [String: Any] = [
+            kAudioAggregateDeviceUIDKey as String: "com.audioctrl.\(pid)",
+            kAudioAggregateDeviceNameKey as String: "AudioCtrl_\(pid)",
+            kAudioAggregateDeviceIsPrivateKey as String: 1,
+            kAudioAggregateDeviceSubDeviceListKey as String: [
+                [kAudioSubDeviceUIDKey as String: outputUID]
+            ],
+            kAudioAggregateDeviceTapListKey as String: [
+                [
+                    kAudioSubTapUIDKey as String: tapUID,
+                    kAudioSubTapDriftCompensationKey as String: 0
+                ]
+            ],
+            kAudioAggregateDeviceTapAutoStartKey as String: 1
+        ]
+        
+        var newAggID: AudioObjectID = AudioObjectID(kAudioObjectUnknown)
+        guard AudioHardwareCreateAggregateDevice(aggDesc as CFDictionary, &newAggID) == noErr else {
+            AudioHardwareDestroyProcessTap(tapID)
+            return false
+        }
+        self.aggregateDeviceID = newAggID
+        
+        // 5. Create and start IO proc for gain scaling
+        let sessionPtr = Unmanaged.passUnretained(self).toOpaque()
+        var newIOProcID: AudioDeviceIOProcID?
+        guard AudioDeviceCreateIOProcID(aggregateDeviceID, Self.ioProc, sessionPtr, &newIOProcID) == noErr,
+              newIOProcID != nil else {
+            cleanup()
+            return false
+        }
+        self.ioProcID = newIOProcID
+        
+        guard AudioDeviceStart(aggregateDeviceID, ioProcID) == noErr else {
+            cleanup()
+            return false
+        }
+        
+        isActive = true
+        return true
+    }
+    
+    // IO proc: reads tapped audio input -> applies gain -> writes to output
+    private static let ioProc: AudioDeviceIOProc = { (device, now, inputData, inputTime, outputData, outputTime, clientData) -> OSStatus in
+        guard let clientData = clientData else { return noErr }
+        let session = Unmanaged<ProcessTapSession>.fromOpaque(clientData).takeUnretainedValue()
+        let gain = session.gain
+        
+        let inBufList = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: inputData))
+        let outBufList = UnsafeMutableAudioBufferListPointer(outputData)
+        
+        for i in 0..<min(inBufList.count, outBufList.count) {
+            let inBuf = inBufList[i]
+            let outBuf = outBufList[i]
+            
+            guard let inData = inBuf.mData?.assumingMemoryBound(to: Float32.self),
+                  let outData = outBuf.mData?.assumingMemoryBound(to: Float32.self) else { continue }
+            
+            let frameCount = Int(min(inBuf.mDataByteSize, outBuf.mDataByteSize)) / MemoryLayout<Float32>.size
+            for j in 0..<frameCount {
+                outData[j] = inData[j] * gain
+            }
+        }
+        
+        return noErr
+    }
+    
+    func cleanup() {
+        if let ioProcID = ioProcID {
+            AudioDeviceStop(aggregateDeviceID, ioProcID)
+            AudioDeviceDestroyIOProcID(aggregateDeviceID, ioProcID)
+            self.ioProcID = nil
+        }
+        if aggregateDeviceID != AudioObjectID(kAudioObjectUnknown) {
+            AudioHardwareDestroyAggregateDevice(aggregateDeviceID)
+            aggregateDeviceID = AudioObjectID(kAudioObjectUnknown)
+        }
+        if tapID != AudioObjectID(kAudioObjectUnknown) {
+            AudioHardwareDestroyProcessTap(tapID)
+            tapID = AudioObjectID(kAudioObjectUnknown)
+        }
+        isActive = false
+    }
+    
+    // MARK: - Helpers
+    private func getTapUID() -> String? {
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioTapPropertyUID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var uid: Unmanaged<CFString>?
+        var sz = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        if AudioObjectGetPropertyData(tapID, &addr, 0, nil, &sz, &uid) == noErr {
+            return uid?.takeUnretainedValue() as String?
+        }
+        return nil
+    }
+    
+    static func getDefaultOutputUID() -> String? {
+        var defaultOutputID: AudioObjectID = 0
+        var propAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var propSize = UInt32(MemoryLayout<AudioObjectID>.size)
+        AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &propAddr, 0, nil, &propSize, &defaultOutputID)
+        
+        var uidAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceUID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var uid: Unmanaged<CFString>?
+        var uidSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        if AudioObjectGetPropertyData(defaultOutputID, &uidAddr, 0, nil, &uidSize, &uid) == noErr {
+            return uid?.takeUnretainedValue() as String?
+        }
+        return nil
+    }
+    
+    deinit {
+        cleanup()
+    }
+}
+
+// MARK: - App Audio Process Manager
 @MainActor
 public final class AppAudioProcessManager: ObservableObject {
     public static let shared = AppAudioProcessManager()
     
     @Published public var runningAppProcesses: [AppAudioProcess] = []
     
-    private var workspaceObserver: Any?
     private var timer: Timer?
+    private var tapSessions: [String: ProcessTapSession] = [:]  // keyed by bundleID
     
     init() {
         refreshActiveProcesses()
@@ -28,208 +203,188 @@ public final class AppAudioProcessManager: ObservableObject {
     
     deinit {
         timer?.invalidate()
+        for (_, session) in tapSessions {
+            session.cleanup()
+        }
     }
     
+    // MARK: - Core Discovery
     public func refreshActiveProcesses() {
-        let activePIDs = getActiveAudioPIDs()
+        let audioObjects = getCoreAudioProcessObjects()
         let runningApps = NSWorkspace.shared.runningApplications
         
+        // PID -> NSRunningApplication (only user-facing .regular apps)
+        var pidToApp: [pid_t: NSRunningApplication] = [:]
+        for app in runningApps {
+            guard app.activationPolicy == .regular else { continue }
+            guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { continue }
+            pidToApp[app.processIdentifier] = app
+        }
+        
+        // Intersect: CoreAudio process objects that map to user-facing apps
+        var seen = Set<String>()
         var updatedList: [AppAudioProcess] = []
         
-        for app in runningApps {
+        for (objID, pid) in audioObjects {
+            guard let app = pidToApp[pid] else { continue }
             guard let bundleID = app.bundleIdentifier, let name = app.localizedName else { continue }
-            if bundleID == Bundle.main.bundleIdentifier { continue }
+            guard !seen.contains(bundleID) else { continue }
+            seen.insert(bundleID)
             
-            let pid = app.processIdentifier
+            let isPlayingOutput = checkIsRunningOutput(audioObjectID: objID)
+            let icon = app.icon ?? NSImage(named: NSImage.applicationIconName) ?? NSImage()
+            let storedVol = loadVolume(sessionID: bundleID)
+            let storedMute = loadMute(sessionID: bundleID)
             
-            // Only track apps producing audio live (or active audio apps)
-            let isLiveAudio = activePIDs.contains(pid) || isKnownActiveAudioApp(bundleID: bundleID, pid: pid)
-            guard isLiveAudio else { continue }
+            let process = AppAudioProcess(
+                id: bundleID,
+                pid: pid,
+                audioObjectID: objID,
+                bundleIdentifier: bundleID,
+                name: name,
+                icon: icon,
+                volume: storedVol,
+                isMuted: storedMute,
+                isPlayingAudio: isPlayingOutput
+            )
+            updatedList.append(process)
             
-            let icon = app.icon ?? NSWorkspace.shared.icon(forFileType: NSFileTypeForHFSTypeCode(OSType(kGenericApplicationIcon)))
-            
-            // Check for multi-window / multi-tab browser sessions (Brave, Chrome, Safari, Arc, Firefox)
-            let windows = getWindowTitlesForProcess(pid: pid, bundleID: bundleID)
-            
-            if !windows.isEmpty {
-                for (idx, winTitle) in windows.enumerated() {
-                    let uniqueID = "\(bundleID)_win_\(idx)_\(winTitle.hashValue)"
-                    let storedVol = loadAppVolumeFromDisk(sessionID: uniqueID)
-                    let storedMute = loadAppMuteFromDisk(sessionID: uniqueID)
-                    
-                    let process = AppAudioProcess(
-                        id: uniqueID,
-                        pid: pid,
-                        bundleIdentifier: bundleID,
-                        name: name,
-                        windowTitle: winTitle,
-                        icon: icon,
-                        volume: storedVol,
-                        isMuted: storedMute,
-                        isLivePlaying: true
-                    )
-                    updatedList.append(process)
-                }
-            } else {
-                let uniqueID = bundleID
-                let storedVol = loadAppVolumeFromDisk(sessionID: uniqueID)
-                let storedMute = loadAppMuteFromDisk(sessionID: uniqueID)
-                
-                let process = AppAudioProcess(
-                    id: uniqueID,
-                    pid: pid,
-                    bundleIdentifier: bundleID,
-                    name: name,
-                    windowTitle: nil,
-                    icon: icon,
-                    volume: storedVol,
-                    isMuted: storedMute,
-                    isLivePlaying: true
-                )
-                updatedList.append(process)
+            // Ensure tap session exists and gain is synced
+            ensureTapSession(for: process)
+        }
+        
+        // Remove tap sessions for apps that are no longer present
+        let currentBundleIDs = Set(updatedList.map { $0.id })
+        for key in tapSessions.keys {
+            if !currentBundleIDs.contains(key) {
+                tapSessions[key]?.cleanup()
+                tapSessions.removeValue(forKey: key)
             }
         }
         
-        // Sort alphabetically by display name
-        self.runningAppProcesses = updatedList.sorted(by: { $0.displayName.lowercased() < $1.displayName.lowercased() })
+        self.runningAppProcesses = updatedList.sorted { $0.name.lowercased() < $1.name.lowercased() }
     }
     
+    // MARK: - Volume & Mute Actions
     public func setAppVolume(sessionID: String, volume: Float) {
         let clamped = max(0.0, min(AppConfig.Audio.maxAppVolumeBoost, volume))
-        if let index = runningAppProcesses.firstIndex(where: { $0.id == sessionID }) {
-            runningAppProcesses[index].volume = clamped
-            saveAppVolumeToDisk(sessionID: sessionID, volume: clamped)
-            applyProcessVolumeTap(process: runningAppProcesses[index])
-        }
+        guard let index = runningAppProcesses.firstIndex(where: { $0.id == sessionID }) else { return }
+        runningAppProcesses[index].volume = clamped
+        saveVolume(sessionID: sessionID, volume: clamped)
+        updateTapGain(sessionID: sessionID)
     }
     
     public func toggleAppMute(sessionID: String) {
-        if let index = runningAppProcesses.firstIndex(where: { $0.id == sessionID }) {
-            runningAppProcesses[index].isMuted.toggle()
-            let newMute = runningAppProcesses[index].isMuted
-            saveAppMuteToDisk(sessionID: sessionID, isMuted: newMute)
-            applyProcessVolumeTap(process: runningAppProcesses[index])
-        }
+        guard let index = runningAppProcesses.firstIndex(where: { $0.id == sessionID }) else { return }
+        runningAppProcesses[index].isMuted.toggle()
+        saveMute(sessionID: sessionID, isMuted: runningAppProcesses[index].isMuted)
+        updateTapGain(sessionID: sessionID)
     }
     
-    private func getActiveAudioPIDs() -> Set<pid_t> {
-        var pids = Set<pid_t>()
-        
+    // MARK: - Tap Session Management
+    private func ensureTapSession(for process: AppAudioProcess) {
+        if tapSessions[process.id] == nil {
+            let session = ProcessTapSession(pid: process.pid, audioObjectID: process.audioObjectID)
+            let started = session.start()
+            if started {
+                tapSessions[process.id] = session
+                #if DEBUG
+                print("[TapMgr] Tap started for \(process.name) (PID \(process.pid))")
+                #endif
+            } else {
+                #if DEBUG
+                print("[TapMgr] Tap FAILED for \(process.name) (PID \(process.pid))")
+                #endif
+            }
+        }
+        updateTapGain(sessionID: process.id)
+    }
+    
+    private func updateTapGain(sessionID: String) {
+        guard let process = runningAppProcesses.first(where: { $0.id == sessionID }),
+              let session = tapSessions[sessionID] else { return }
+        session.gain = process.isMuted ? 0.0 : process.volume
+    }
+    
+    // MARK: - CoreAudio Queries
+    private func getCoreAudioProcessObjects() -> [(audioObjectID: AudioObjectID, pid: pid_t)] {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyProcessObjectList,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        
         var dataSize: UInt32 = 0
-        let status = AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize)
-        if status == noErr && dataSize > 0 {
-            let count = Int(dataSize) / MemoryLayout<AudioObjectID>.size
-            var processObjects = [AudioObjectID](repeating: 0, count: count)
-            if AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize, &processObjects) == noErr {
-                for procObj in processObjects {
-                    var pidAddress = AudioObjectPropertyAddress(
-                        mSelector: kAudioProcessPropertyPID,
-                        mScope: kAudioObjectPropertyScopeGlobal,
-                        mElement: kAudioObjectPropertyElementMain
-                    )
-                    var pid: pid_t = 0
-                    var pidSize = UInt32(MemoryLayout<pid_t>.size)
-                    if AudioObjectGetPropertyData(procObj, &pidAddress, 0, nil, &pidSize, &pid) == noErr && pid > 0 {
-                        pids.insert(pid)
-                    }
-                }
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize) == noErr,
+              dataSize > 0 else { return [] }
+        
+        let count = Int(dataSize) / MemoryLayout<AudioObjectID>.size
+        var processObjects = [AudioObjectID](repeating: 0, count: count)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize, &processObjects) == noErr else { return [] }
+        
+        var results: [(AudioObjectID, pid_t)] = []
+        for procObj in processObjects {
+            var pidAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioProcessPropertyPID,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            var pid: pid_t = 0
+            var pidSize = UInt32(MemoryLayout<pid_t>.size)
+            if AudioObjectGetPropertyData(procObj, &pidAddr, 0, nil, &pidSize, &pid) == noErr, pid > 0 {
+                results.append((procObj, pid))
             }
         }
-        return pids
+        return results
     }
     
-    private func isKnownActiveAudioApp(bundleID: String, pid: pid_t) -> Bool {
-        let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
-        guard let windowInfoList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else { return false }
-        
-        for win in windowInfoList {
-            if let winPID = win[kCGWindowOwnerPID as String] as? pid_t, winPID == pid {
-                if let winName = win[kCGWindowName as String] as? String, !winName.isEmpty {
-                    let lower = winName.lowercased()
-                    if lower.contains("youtube") || lower.contains("twitch") || lower.contains("spotify") || lower.contains("soundcloud") || lower.contains("netflix") || lower.contains("video") || lower.contains("music") || lower.contains("playing") {
-                        return true
-                    }
-                }
-            }
+    private func checkIsRunningOutput(audioObjectID: AudioObjectID) -> Bool {
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioProcessPropertyIsRunningOutput,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var isRunning: UInt32 = 0
+        var sz = UInt32(MemoryLayout<UInt32>.size)
+        if AudioObjectGetPropertyData(audioObjectID, &addr, 0, nil, &sz, &isRunning) == noErr {
+            return isRunning != 0
         }
         return false
     }
     
-    private func getWindowTitlesForProcess(pid: pid_t, bundleID: String) -> [String] {
-        let isBrowser = bundleID.contains("Brave") || bundleID.contains("Chrome") || bundleID.contains("Safari") || bundleID.contains("browser") || bundleID.contains("firefox")
-        guard isBrowser else { return [] }
-        
-        var titles: [String] = []
-        let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
-        guard let windowInfoList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else { return [] }
-        
-        for win in windowInfoList {
-            if let winPID = win[kCGWindowOwnerPID as String] as? pid_t, winPID == pid {
-                if let winName = win[kCGWindowName as String] as? String, !winName.isEmpty {
-                    if winName != "Brave" && winName != "Chrome" && winName != "Safari" {
-                        titles.append(winName)
-                    }
-                }
-            }
-        }
-        return Array(Set(titles))
-    }
-    
-    private func applyProcessVolumeTap(process: AppAudioProcess) {
-        let effectiveGain = process.isMuted ? 0.0 : process.volume
-        #if DEBUG
-        print("[CoreAudio Tap] Session \(process.id) (\(process.displayName)) set to gain: \(effectiveGain)")
-        #endif
-    }
-    
-    private func loadAppVolumeFromDisk(sessionID: String) -> Float {
+    // MARK: - Persistence
+    private func loadVolume(sessionID: String) -> Float {
         let key = AppConfig.Strings.appVolumeStoragePrefix + sessionID + "_vol"
-        if UserDefaults.standard.object(forKey: key) != nil {
-            return UserDefaults.standard.float(forKey: key)
-        }
-        return AppConfig.Audio.defaultAppVolume
+        return UserDefaults.standard.object(forKey: key) != nil
+            ? UserDefaults.standard.float(forKey: key)
+            : AppConfig.Audio.defaultAppVolume
     }
     
-    private func saveAppVolumeToDisk(sessionID: String, volume: Float) {
-        let key = AppConfig.Strings.appVolumeStoragePrefix + sessionID + "_vol"
-        UserDefaults.standard.set(volume, forKey: key)
+    private func saveVolume(sessionID: String, volume: Float) {
+        UserDefaults.standard.set(volume, forKey: AppConfig.Strings.appVolumeStoragePrefix + sessionID + "_vol")
     }
     
-    private func loadAppMuteFromDisk(sessionID: String) -> Bool {
-        let key = AppConfig.Strings.appVolumeStoragePrefix + sessionID + "_mute"
-        return UserDefaults.standard.bool(forKey: key)
+    private func loadMute(sessionID: String) -> Bool {
+        UserDefaults.standard.bool(forKey: AppConfig.Strings.appVolumeStoragePrefix + sessionID + "_mute")
     }
     
-    private func saveAppMuteToDisk(sessionID: String, isMuted: Bool) {
-        let key = AppConfig.Strings.appVolumeStoragePrefix + sessionID + "_mute"
-        UserDefaults.standard.set(isMuted, forKey: key)
+    private func saveMute(sessionID: String, isMuted: Bool) {
+        UserDefaults.standard.set(isMuted, forKey: AppConfig.Strings.appVolumeStoragePrefix + sessionID + "_mute")
     }
     
+    // MARK: - Listeners
     private func setupWorkspaceListeners() {
         let nc = NSWorkspace.shared.notificationCenter
         nc.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.refreshActiveProcesses()
-            }
+            Task { @MainActor [weak self] in self?.refreshActiveProcesses() }
         }
         nc.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.refreshActiveProcesses()
-            }
+            Task { @MainActor [weak self] in self?.refreshActiveProcesses() }
         }
     }
     
     private func startPeriodicCheck() {
         timer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.refreshActiveProcesses()
-            }
+            Task { @MainActor [weak self] in self?.refreshActiveProcesses() }
         }
     }
 }
